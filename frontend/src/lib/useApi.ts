@@ -11,22 +11,25 @@ export type ApiState<T> = {
 };
 
 const EMPTY = { data: null, meta: null, error: null, loading: true };
+const IDLE = { data: null, meta: null, error: null, loading: false };
 
 /**
- * Fetch an API path and re-fetch it every `pollMs`.
+ * Fetch an API path and re-fetch it every `pollMs`. Pass null to fetch nothing (yet).
  * If a refresh fails, the last good data stays on screen next to the error,
  * so a blip never blanks the page and nothing is ever made up.
  */
-export function useApi<T>(path: string, pollMs?: number): ApiState<T> {
+export function useApi<T>(path: string | null, pollMs?: number): ApiState<T> {
   // Results are tagged with their path so a new path never shows the old path's data.
-  const [state, setState] = useState<ApiState<T> & { path: string }>({ ...EMPTY, path });
+  const [state, setState] = useState<ApiState<T> & { path: string | null }>({ ...EMPTY, path });
 
   useEffect(() => {
+    if (path === null) return;
+    const url = path;
     const controller = new AbortController();
 
     async function load() {
       try {
-        const { data, meta } = await apiGet<T>(path, controller.signal);
+        const { data, meta } = await apiGet<T>(url, controller.signal);
         setState({ data, meta, error: null, loading: false, path });
       } catch (err) {
         if (controller.signal.aborted) return;
@@ -43,5 +46,6 @@ export function useApi<T>(path: string, pollMs?: number): ApiState<T> {
     };
   }, [path, pollMs]);
 
+  if (path === null) return IDLE;
   return state.path === path ? state : EMPTY;
 }

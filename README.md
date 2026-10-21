@@ -32,7 +32,9 @@ The paper is cream, ink, and serif headlines. Every screen opens from **Look up*
 
 A ticker alone (`NVDA`) opens its description. Up arrow in an empty Look up box recalls recent commands. International listings use Yahoo suffixes (`7203.T GP`, `0700.HK DES`), indices use `^` (`^N225 GP`).
 
-**USD / PHP toggle** (top right): switches the ticker tape's USD prices, the crypto board, coin descriptions, and Home's crypto column to pesos. Peso changes include the peso's own move. Stock prices and all charts stay in their native currency, labeled, because converting past prices at today's rate would be wrong.
+**USD / PHP toggle** (top right): switches the ticker tape's USD prices, the crypto board, coin descriptions, Home's crypto column, and price charts to pesos. Peso changes include the peso's own move. Charts convert every candle at the USD/PHP rate of its own day (or 5 minutes), never today's rate, so a peso chart shows what the asset was really worth in pesos at the time. Indices, exchange rates, and non-USD listings (like `7203.T`) stay in their own currency, labeled.
+
+**Chart legend**: hover a candle for its prices and time. Intraday candles show their local time; daily, weekly, and monthly candles show when they closed in your time (e.g. "closed 04:00 Manila"), or the last trade if still open.
 
 **Backend**: a FastAPI backend that fetches market data, cleans it, caches it, and serves JSON (or CSV for Excel).
 
@@ -41,7 +43,7 @@ A ticker alone (`NVDA`) opens its description. Up arrow in an empty Look up box 
 | `GET /api/health` | Server status | local | none |
 | `GET /api/quote/{ticker}` | Price, change, day range, 52-week range, market cap | Yahoo | 60 s |
 | `GET /api/quotes?symbols=AAPL,NVDA,...` | Last close, day change, and a month of closes for up to 25 tickers in one batch | Yahoo | 60 s |
-| `GET /api/chart/{ticker}?range=1y&interval=1d` | OHLCV candles with SMA 20/50/200 | Yahoo | 60 s intraday, 10 min daily |
+| `GET /api/chart/{ticker}?range=1y&interval=1d&currency=native\|PHP` | OHLCV candles with SMA 20/50/200 and each bar's close time; `currency=PHP` converts bar by bar at that bar's USD/PHP rate | Yahoo | 60 s intraday, 10 min daily |
 | `GET /api/des/{ticker}` | Stocks/ETFs: profile, valuation, 52-week range, dividend yield, fund facts. Coins: profile, supply, all-time high, distance from it (USD and PHP) | Yahoo / CoinGecko | 6 h profile (coin prices 2 min) |
 | `GET /api/wei` | 16 world indices + BTC, ETH, USD/PHP, DXY, gold, crude, US 10Y, with YTD and open/closed | Yahoo | 60 s |
 | `GET /api/news?category=all\|markets\|crypto&limit=50` | Deduplicated headlines, newest first | RSS | 5 min per feed |

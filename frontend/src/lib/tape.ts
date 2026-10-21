@@ -52,7 +52,7 @@ function num(value: number | null | undefined): value is number {
  * Day change of a USD price seen in pesos. Both the price and the peso moved, so
  * compare today's price x rate with yesterday's price x rate.
  */
-export function phpChangePct(usd: WeiRow, fx: WeiRow): number | null {
+export function phpChangePct(usd: Pick<WeiRow, "last" | "change">, fx: Pick<WeiRow, "last" | "change">): number | null {
   const { last, change } = usd;
   const { last: rate, change: rateChange } = fx;
   if (!num(last) || !num(change) || !num(rate) || !num(rateChange)) return null;

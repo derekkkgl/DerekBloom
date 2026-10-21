@@ -113,9 +113,21 @@ export type Candle = {
   sma20: number | null;
   sma50: number | null;
   sma200: number | null;
+  close_time: number | null; // Unix seconds the bar closes(d); null for intraday bars
 };
 
-export type ChartData = { symbol: string; currency: string | null; range: string; interval: string; candles: Candle[] };
+export type ChartData = {
+  symbol: string;
+  currency: string | null; // what the prices are in now (PHP when converted)
+  native_currency: string | null;
+  converted: boolean; // true when every bar was converted at its own USD/PHP rate
+  conversion_note: string | null; // how it was converted, or why it couldn't be
+  range: string;
+  interval: string;
+  timezone: string | null; // the exchange's timezone
+  last_trade: string | null; // ISO time of the latest trade
+  candles: Candle[];
+};
 
 export type CryptoCoin = {
   id: string;

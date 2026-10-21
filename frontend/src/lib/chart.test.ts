@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { Candle } from "./api";
-import { barLabel, candleAt, chartPath, chartTime, rangeSpec, RANGES, toSeries } from "./chart";
+import type { Candle, Quote } from "./api";
+import { barLabel, candleAt, chartPath, chartTime, quoteInPhp, rangeSpec, RANGES, toSeries, yearRange } from "./chart";
 
 function candle(time: number, close: number, extra: Partial<Candle> = {}): Candle {
-  return { time, open: close - 1, high: close + 1, low: close - 2, close, volume: 100, sma20: null, sma50: null, sma200: null, ...extra };
+  return { time, open: close - 1, high: close + 1, low: close - 2, close, volume: 100, sma20: null, sma50: null, sma200: null, close_time: null, ...extra };
 }
 
 describe("ranges", () => {
@@ -16,6 +16,7 @@ describe("ranges", () => {
   it("falls back to 1Y for an unknown key and builds the API path", () => {
     expect(rangeSpec("nope").key).toBe("1Y");
     expect(chartPath("^GSPC", rangeSpec("5D"))).toBe("/api/chart/%5EGSPC?range=5d&interval=30m");
+    expect(chartPath("BTC", rangeSpec("1Y"), "PHP")).toBe("/api/chart/BTC?range=1y&interval=1d&currency=PHP");
   });
 });
 
@@ -75,11 +76,64 @@ describe("candleAt", () => {
   });
 });
 
-describe("barLabel", () => {
-  it("labels daily bars by trading date and intraday bars with local time", () => {
-    expect(barLabel(Date.UTC(2026, 9, 19, 15) / 1000, false)).toBe("20 Oct 2026");
-    const t = Date.UTC(2026, 9, 20, 14, 30) / 1000;
-    const local = new Date(t * 1000).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-    expect(barLabel(t, true)).toMatch(new RegExp(`${local}$`));
+describe("barLabel (in Manila time)", () => {
+  const utc = (y: number, m: number, d: number, h = 0, min = 0) => Date.UTC(y, m - 1, d, h, min) / 1000;
+  const fetchedAt = utc(2026, 10, 21, 14, 41) * 1000; // 22:41 in Manila
+
+  it("shows date and local time for intraday bars", () => {
+    expect(barLabel(candle(utc(2026, 10, 20, 14, 30), 1), rangeSpec("1D"), null, fetchedAt)).toBe("20 Oct 2026 22:30");
+  });
+
+  it("shows when a past daily bar closed, flagging a next-day close", () => {
+    const nvda = candle(utc(2026, 10, 20, 4), 1, { close_time: utc(2026, 10, 20, 20) }); // 16:00 New York
+    expect(barLabel(nvda, rangeSpec("1Y"), null, fetchedAt)).toBe("Tue 20 Oct 2026 · closed 04:00 Manila (21 Oct)");
+    const tokyo = candle(utc(2026, 10, 19, 15), 1, { close_time: utc(2026, 10, 20, 6, 30) }); // 15:30 Tokyo
+    expect(barLabel(tokyo, rangeSpec("1Y"), null, fetchedAt)).toBe("Tue 20 Oct 2026 · closed 14:30 Manila");
+  });
+
+  it("shows the last trade for a bar still trading", () => {
+    const today = candle(utc(2026, 10, 21), 1, { close_time: utc(2026, 10, 22) }); // crypto, closes at 08:00 Manila tomorrow
+    const label = barLabel(today, rangeSpec("1M"), "2026-10-21T14:40:00Z", fetchedAt);
+    expect(label).toBe("Wed 21 Oct 2026 · last trade 22:40 Manila");
+    expect(barLabel(today, rangeSpec("1M"), null, fetchedAt)).toBe("Wed 21 Oct 2026 · still trading");
+  });
+
+  it("names the week or month and the day it closed", () => {
+    const week = candle(utc(2026, 10, 12, 4), 1, { close_time: utc(2026, 10, 16, 20) });
+    expect(barLabel(week, rangeSpec("2Y"), null, fetchedAt)).toBe("Week of 12 Oct 2026 · closed Sat 17 Oct 04:00 Manila");
+    const month = candle(utc(2026, 9, 1, 4), 1, { close_time: utc(2026, 9, 30, 20) });
+    expect(barLabel(month, rangeSpec("MAX"), null, fetchedAt)).toBe("Sept 2026 · closed Thu 1 Oct 04:00 Manila");
+  });
+
+  it("falls back to the date when the close time is unknown", () => {
+    expect(barLabel(candle(utc(2026, 10, 20, 4), 1), rangeSpec("1Y"), null, fetchedAt)).toBe("Tue 20 Oct 2026");
+  });
+});
+
+describe("quoteInPhp", () => {
+  const usd = { price: 110, prev_close: 100, change: 10, open: 101, day_high: 112, day_low: 99, market_cap: 1000 } as Quote;
+  const fx = { price: 60, prev_close: 50, change: 10 } as Quote;
+
+  it("uses today's rate for today's prices and yesterday's for the previous close", () => {
+    const php = quoteInPhp(usd, fx);
+    expect(php.price).toBe(6600);
+    expect(php.prevClose).toBe(5000);
+    expect(php.change).toBe(1600);
+    expect(php.changePct).toBeCloseTo(32); // 6600 / 5000 - 1: the asset's move plus the peso's
+    expect([php.open, php.dayHigh, php.dayLow, php.marketCap]).toEqual([6060, 6720, 5940, 60000]);
+  });
+
+  it("leaves a figure empty when either side is missing", () => {
+    expect(quoteInPhp({ ...usd, open: null }, fx).open).toBeNull();
+    expect(quoteInPhp(usd, { ...fx, price: null }).price).toBeNull();
+  });
+});
+
+describe("yearRange", () => {
+  it("takes the low and high of the last 52 weeks only", () => {
+    const now = 400 * 86_400;
+    const candles = [candle(10 * 86_400, 1000), candle(100 * 86_400, 10), candle(300 * 86_400, 20)];
+    expect(yearRange(candles, now)).toEqual({ low: 8, high: 21 });
+    expect(yearRange([], now)).toEqual({ low: null, high: null });
   });
 });

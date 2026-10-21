@@ -8,7 +8,8 @@ import { Panel } from "@/components/Panel";
 import { RangeRule } from "@/components/RangeRule";
 import { Stat, StatList } from "@/components/StatList";
 import { combineMeta, type Candle, type ChartData, type Quote } from "@/lib/api";
-import { barLabel, candleAt, chartPath, DEFAULT_RANGE, RANGES, rangeSpec, SMA_LINES, type RangeSpec } from "@/lib/chart";
+import { barLabel, candleAt, chartPath, DEFAULT_RANGE, quoteInPhp, RANGES, rangeSpec, SMA_LINES, yearRange, type RangeSpec } from "@/lib/chart";
+import { useDisplayCurrency } from "@/lib/currency";
 import { priceDecimals } from "@/lib/format";
 import type { FunctionScreenProps } from "@/lib/registry";
 import { useApi } from "@/lib/useApi";
@@ -16,46 +17,85 @@ import { useApi } from "@/lib/useApi";
 const QUOTE_POLL_MS = 60_000;
 const INTRADAY_POLL_MS = 60_000; // backend caches intraday bars for 60s
 const DAILY_POLL_MS = 600_000; // and daily bars for 10 min
+const FX_QUOTE = `/api/quote/${encodeURIComponent("PHP=X")}`;
+const YEAR = rangeSpec("1Y");
+
+/** What the hero and key stats show, in whichever currency the chart is in. */
+type View = {
+  currency: string | null;
+  price: number | null;
+  change: number | null;
+  changePct: number | null;
+  open: number | null;
+  dayHigh: number | null;
+  dayLow: number | null;
+  prevClose: number | null;
+  volume: number | null;
+  marketCap: number | null;
+  yearLow: number | null;
+  yearHigh: number | null;
+};
 
 export function PriceChart({ ticker = "", mnemonic, title }: FunctionScreenProps) {
   const [rangeKey, setRangeKey] = useState(DEFAULT_RANGE);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
+  const [displayCurrency] = useDisplayCurrency();
+  const wantPhp = displayCurrency === "PHP";
   const spec = rangeSpec(rangeKey);
-  const chart = useApi<ChartData>(chartPath(ticker, spec), spec.intraday ? INTRADAY_POLL_MS : DAILY_POLL_MS);
+
+  const chart = useApi<ChartData>(chartPath(ticker, spec, wantPhp ? "PHP" : undefined), spec.intraday ? INTRADAY_POLL_MS : DAILY_POLL_MS);
   const quote = useApi<Quote>(`/api/quote/${encodeURIComponent(ticker)}`, QUOTE_POLL_MS);
+  const converted = chart.data?.converted ?? false;
+  const fx = useApi<Quote>(converted ? FX_QUOTE : null, QUOTE_POLL_MS);
+  // The 52-week range in pesos comes from a year of daily bars, each at its own day's rate.
+  const year = useApi<ChartData>(converted && spec.key !== YEAR.key ? chartPath(ticker, YEAR, "PHP") : null, DAILY_POLL_MS);
 
   const q = quote.data;
   const candles = chart.data?.candles ?? [];
-  const currency = chart.data?.currency ?? q?.currency ?? null;
-  const decimals = priceDecimals(q?.symbol, q?.price ?? candles.at(-1)?.close);
+  const fetchedAt = chart.meta ? Date.parse(chart.meta.as_of) : 0;
+  const view = buildView(q, converted, fx.data, spec.key === YEAR.key ? chart.data : year.data, fetchedAt);
+  const decimals = priceDecimals(q?.symbol, view.price ?? candles.at(-1)?.close);
   const shown = candleAt(candles, hoverTime, spec.intraday);
+  const note = chart.data?.conversion_note ?? null;
 
   return (
-    <Panel title={title} mnemonic={mnemonic} ticker={ticker} meta={combineMeta(chart.meta, quote.meta)}>
+    <Panel title={title} mnemonic={mnemonic} ticker={ticker} meta={combineMeta(chart.meta, quote.meta, converted ? fx.meta : null)}>
       <UpdateFailed error={chart.data ? chart.error : null} />
 
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1 pb-2">
         <div>
           <h1 className="font-serif text-[22px] leading-7 font-semibold">{q?.name ?? ticker}</h1>
           <div className="flex items-baseline gap-3">
-            <Num value={q?.price} decimals={decimals} currency={currency ?? undefined} className="text-[32px] leading-10 font-medium" />
-            <Num value={q?.change} change decimals={decimals} className="text-[15px]" />
-            <Num value={q?.change_pct} change percent decimals={2} className="text-[15px]" />
+            <Num value={view.price} decimals={decimals} currency={view.currency ?? undefined} className="text-[32px] leading-10 font-medium" />
+            <Num value={view.change} change decimals={decimals} className="text-[15px]" />
+            <Num value={view.changePct} change percent decimals={2} className="text-[15px]" />
           </div>
         </div>
         <p className="micro-label pb-1">
-          Prices in {currency ?? "native currency"}
+          {converted ? "Prices in PHP at each bar's USD/PHP rate" : `Prices in ${view.currency ?? "native currency"}`}
           {q?.exchange && <span> · {q.exchange}</span>}
         </p>
       </div>
+      {wantPhp && note && !converted && <p className="pb-1 text-[12px] text-muted">Not shown in pesos: {note}</p>}
 
       <RangeButtons active={spec.key} onSelect={setRangeKey} />
-      <Legend candle={shown} spec={spec} decimals={decimals} />
+      <Legend
+        candle={shown}
+        label={shown ? barLabel(shown, spec, chart.data?.last_trade ?? null, fetchedAt) : "—"}
+        spec={spec}
+        decimals={decimals}
+      />
 
       <div className="grid grid-cols-1 gap-x-4 border-t border-hairline md:grid-cols-[1fr_220px]">
         <div className="min-w-0 pt-1">
           {chart.data && candles.length > 0 ? (
-            <Chart candles={candles} intraday={spec.intraday} decimals={decimals} fitKey={`${ticker}:${spec.key}`} onHover={setHoverTime} />
+            <Chart
+              candles={candles}
+              intraday={spec.intraday}
+              decimals={decimals}
+              fitKey={`${ticker}:${spec.key}:${chart.data.currency}`}
+              onHover={setHoverTime}
+            />
           ) : chart.data ? (
             <p className="py-8 text-[13px] text-muted">No bars for this range.</p>
           ) : (
@@ -63,14 +103,56 @@ export function PriceChart({ ticker = "", mnemonic, title }: FunctionScreenProps
               <Pending error={chart.error} rows={10} />
             </div>
           )}
+          {converted && note && <p className="pt-1 text-[11px] text-muted">{note}</p>}
         </div>
         <aside className="pt-2 md:border-l md:border-hairline md:pl-4">
-          <KeyStats quote={q} last={candles.at(-1) ?? null} decimals={decimals} spec={spec} />
+          <KeyStats view={view} last={candles.at(-1) ?? null} decimals={decimals} spec={spec} />
           {!q && quote.error && <p className="mt-2 text-[12px] text-muted">Quote: {quote.error.message}</p>}
+          {converted && !fx.data && fx.error && <p className="mt-2 text-[12px] text-muted">USD/PHP rate: {fx.error.message}</p>}
         </aside>
       </div>
     </Panel>
   );
+}
+
+/**
+ * Native: the quote as is. In pesos: today's figures at today's rate and the previous close
+ * at yesterday's (see quoteInPhp), the 52-week range from peso daily bars. Until the rate
+ * arrives the peso figures stay empty rather than showing dollars under a peso label.
+ */
+function buildView(q: Quote | null, converted: boolean, fx: Quote | null, yearBars: ChartData | null, fetchedAt: number): View {
+  if (!converted) {
+    return {
+      currency: q?.currency ?? null,
+      price: q?.price ?? null,
+      change: q?.change ?? null,
+      changePct: q?.change_pct ?? null,
+      open: q?.open ?? null,
+      dayHigh: q?.day_high ?? null,
+      dayLow: q?.day_low ?? null,
+      prevClose: q?.prev_close ?? null,
+      volume: q?.volume ?? null,
+      marketCap: q?.market_cap ?? null,
+      yearLow: q?.year_low ?? null,
+      yearHigh: q?.year_high ?? null,
+    };
+  }
+  const php = q && fx ? quoteInPhp(q, fx) : null;
+  const range = yearBars?.converted ? yearRange(yearBars.candles, fetchedAt / 1000) : { low: null, high: null };
+  return {
+    currency: "PHP",
+    price: php?.price ?? null,
+    change: php?.change ?? null,
+    changePct: php?.changePct ?? null,
+    open: php?.open ?? null,
+    dayHigh: php?.dayHigh ?? null,
+    dayLow: php?.dayLow ?? null,
+    prevClose: php?.prevClose ?? null,
+    volume: q?.volume ?? null,
+    marketCap: php?.marketCap ?? null,
+    yearLow: range.low,
+    yearHigh: range.high,
+  };
 }
 
 function RangeButtons({ active, onSelect }: { active: string; onSelect: (key: string) => void }) {
@@ -92,10 +174,10 @@ function RangeButtons({ active, onSelect }: { active: string; onSelect: (key: st
 }
 
 /** The hovered bar's OHLC and SMA values, or the latest bar when the pointer is off the chart. */
-function Legend({ candle, spec, decimals }: { candle: Candle | null; spec: RangeSpec; decimals: number }) {
+function Legend({ candle, label, spec, decimals }: { candle: Candle | null; label: string; spec: RangeSpec; decimals: number }) {
   return (
     <div className="flex min-h-6 flex-wrap items-baseline gap-x-3 py-1 font-mono text-[11px] tabular-nums" aria-live="off">
-      <span className="text-muted">{candle ? barLabel(candle.time, spec.intraday) : "—"}</span>
+      <span className="text-muted">{label}</span>
       {(["open", "high", "low", "close"] as const).map((field) => (
         <span key={field}>
           <span className="text-muted">{field[0].toUpperCase()} </span>
@@ -122,18 +204,18 @@ function Legend({ candle, spec, decimals }: { candle: Candle | null; spec: Range
   );
 }
 
-function KeyStats({ quote, last, decimals, spec }: { quote: Quote | null; last: Candle | null; decimals: number; spec: RangeSpec }) {
+function KeyStats({ view, last, decimals, spec }: { view: View; last: Candle | null; decimals: number; spec: RangeSpec }) {
   return (
     <StatList title="Key stats">
-      <Stat label="Open"><Num value={quote?.open} decimals={decimals} /></Stat>
-      <Stat label="Day high"><Num value={quote?.day_high} decimals={decimals} /></Stat>
-      <Stat label="Day low"><Num value={quote?.day_low} decimals={decimals} /></Stat>
-      <Stat label="Prev close"><Num value={quote?.prev_close} decimals={decimals} /></Stat>
-      <Stat label="Volume"><Num value={quote?.volume} compact /></Stat>
-      <Stat label="Market cap"><Num value={quote?.market_cap} compact /></Stat>
+      <Stat label="Open"><Num value={view.open} decimals={decimals} /></Stat>
+      <Stat label="Day high"><Num value={view.dayHigh} decimals={decimals} /></Stat>
+      <Stat label="Day low"><Num value={view.dayLow} decimals={decimals} /></Stat>
+      <Stat label="Prev close"><Num value={view.prevClose} decimals={decimals} /></Stat>
+      <Stat label="Volume"><Num value={view.volume} compact /></Stat>
+      <Stat label="Market cap"><Num value={view.marketCap} compact currency={view.currency ?? undefined} /></Stat>
       <div className="border-b border-hairline py-1.5 text-[13px]">
         <p className="mb-1 text-muted">52-week range</p>
-        <RangeRule low={quote?.year_low ?? null} high={quote?.year_high ?? null} value={quote?.price ?? null} format={{ decimals }} label="52-week range" />
+        <RangeRule low={view.yearLow} high={view.yearHigh} value={view.price} format={{ decimals }} label="52-week range" />
       </div>
       {SMA_LINES.map((line) => (
         <Stat key={line.key} label={line.label}><Num value={last?.[line.key]} decimals={decimals} /></Stat>

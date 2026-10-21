@@ -1,7 +1,8 @@
 // GP's range buttons and the conversion from API candles to lightweight-charts series.
 // Pure functions, so the time and gap handling can be tested without a browser.
 
-import type { Candle } from "./api";
+import type { Candle, Quote } from "./api";
+import { phpChangePct } from "./tape";
 
 export type RangeSpec = {
   key: string; // button label
@@ -30,8 +31,9 @@ export function rangeSpec(key: string): RangeSpec {
   return RANGES.find((r) => r.key === key) ?? RANGES.find((r) => r.key === DEFAULT_RANGE)!;
 }
 
-export function chartPath(ticker: string, spec: RangeSpec): string {
-  return `/api/chart/${encodeURIComponent(ticker)}?range=${spec.range}&interval=${spec.interval}`;
+export function chartPath(ticker: string, spec: RangeSpec, currency?: "PHP"): string {
+  const base = `/api/chart/${encodeURIComponent(ticker)}?range=${spec.range}&interval=${spec.interval}`;
+  return currency ? `${base}&currency=${currency}` : base;
 }
 
 export const SMA_LINES = [
@@ -58,12 +60,85 @@ export function chartTime(time: number, intraday: boolean): number {
   return time - new Date(time * 1000).getTimezoneOffset() * 60;
 }
 
-/** "20 Oct 2026" for daily bars, "20 Oct 2026 22:30" (local time) for intraday ones. */
-export function barLabel(time: number, intraday: boolean): string {
-  const shown = new Date(chartTime(time, intraday) * 1000); // already shifted, so read it as UTC
-  const date = shown.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
-  if (!intraday) return date;
-  return `${date} ${shown.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })}`;
+/** The viewer's city for time labels: "Asia/Manila" -> "Manila". */
+export function localZoneName(): string {
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+  return zone.split("/").pop()?.replace(/_/g, " ") || "local time";
+}
+
+const DAY_MONTH: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+const HOUR_MINUTE: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit", hourCycle: "h23" };
+
+function fmt(date: Date, opts: Intl.DateTimeFormatOptions, utc = false): string {
+  return date.toLocaleString("en-GB", utc ? { ...opts, timeZone: "UTC" } : opts);
+}
+
+/** "Fri 17 Oct": built in two parts, because ICU adds a comma after the weekday only sometimes. */
+function dayName(date: Date, utc = false, year = false): string {
+  return `${fmt(date, { weekday: "short" }, utc)} ${fmt(date, year ? { ...DAY_MONTH, year: "numeric" } : DAY_MONTH, utc)}`;
+}
+
+/**
+ * The hover legend's date and time for a bar.
+ *   intraday: "21 Oct 2026 22:30" in local time
+ *   daily:    "Mon 20 Oct 2026 · closed 04:00 Manila (21 Oct)"
+ *   weekly:   "Week of 13 Oct 2026 · closed Fri 17 Oct 04:00 Manila"
+ *   monthly:  "Oct 2026 · closed Fri 30 Oct 04:00 Manila"
+ * A bar that hadn't closed when the data was fetched shows its last trade instead.
+ */
+export function barLabel(candle: Candle, spec: RangeSpec, lastTrade: string | null, fetchedAt: number): string {
+  const shown = new Date(chartTime(candle.time, spec.intraday) * 1000); // already shifted, so read it as UTC
+  if (spec.intraday) {
+    return `${fmt(shown, { ...DAY_MONTH, year: "numeric" }, true)} ${fmt(shown, HOUR_MINUTE, true)}`;
+  }
+
+  const period =
+    spec.interval === "1wk"
+      ? `Week of ${fmt(shown, { ...DAY_MONTH, year: "numeric" }, true)}`
+      : spec.interval === "1mo"
+        ? fmt(shown, { month: "short", year: "numeric" }, true)
+        : dayName(shown, true, true);
+  if (candle.close_time === null) return period;
+
+  const zone = localZoneName();
+  const daily = spec.interval === "1d";
+  const at = (moment: Date) => {
+    const clock = fmt(moment, HOUR_MINUTE);
+    if (!daily) return `${dayName(moment)} ${clock} ${zone}`;
+    const otherDay = fmt(moment, DAY_MONTH) !== fmt(shown, DAY_MONTH, true);
+    return `${clock} ${zone}${otherDay ? ` (${fmt(moment, DAY_MONTH)})` : ""}`;
+  };
+
+  const closesAt = new Date(candle.close_time * 1000);
+  if (closesAt.getTime() <= fetchedAt) return `${period} · closed ${at(closesAt)}`;
+  const trade = lastTrade ? new Date(lastTrade) : null;
+  return trade && !Number.isNaN(trade.getTime()) ? `${period} · last trade ${at(trade)}` : `${period} · still trading`;
+}
+
+/** The day's figures of a USD quote in pesos: today's prices at today's rate, yesterday's close at yesterday's. */
+export function quoteInPhp(q: Quote, fx: Quote) {
+  const rate = fx.price;
+  const times = (value: number | null, by: number | null) => (value !== null && by !== null ? value * by : null);
+  const price = times(q.price, rate);
+  const prevClose = times(q.prev_close, fx.prev_close);
+  return {
+    price,
+    prevClose,
+    change: price !== null && prevClose !== null ? price - prevClose : null,
+    changePct: phpChangePct({ last: q.price, change: q.change }, { last: fx.price, change: fx.change }),
+    open: times(q.open, rate),
+    dayHigh: times(q.day_high, rate),
+    dayLow: times(q.day_low, rate),
+    marketCap: times(q.market_cap, rate),
+  };
+}
+
+/** Lowest low and highest high of the past 52 weeks, from daily bars. */
+export function yearRange(candles: Candle[], nowSeconds: number): { low: number | null; high: number | null } {
+  const recent = candles.filter((c) => c.time >= nowSeconds - 365 * 86_400);
+  const lows = recent.map((c) => c.low).filter((v): v is number => v !== null);
+  const highs = recent.map((c) => c.high).filter((v): v is number => v !== null);
+  return { low: lows.length ? Math.min(...lows) : null, high: highs.length ? Math.max(...highs) : null };
 }
 
 type Point = { time: number; value: number };
