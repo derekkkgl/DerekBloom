@@ -63,6 +63,18 @@ export type TxForm = {
   note: string;
 };
 
+export const NO_ACCOUNT = "No account";
+
+/** The entry line's starting account: "No account", since picking one is optional. */
+export function defaultAccount(accounts: Account[]): Account | undefined {
+  return accounts.find((a) => a.name === NO_ACCOUNT) ?? accounts[0];
+}
+
+/** Accounts as the picker lists them: "No account" first, then the exchanges. */
+export function accountOptions(accounts: Account[]): Account[] {
+  return [...accounts.filter((a) => a.name === NO_ACCOUNT), ...accounts.filter((a) => a.name !== NO_ACCOUNT)];
+}
+
 export function emptyForm(today: string, account: Account | undefined, type: TxType = "BUY"): TxForm {
   return {
     trade_date: today,
@@ -185,4 +197,33 @@ export function formatDuration(months: number | null): string {
   const rest = months % 12;
   const parts = [years ? `${years} ${years === 1 ? "year" : "years"}` : "", rest ? `${rest} ${rest === 1 ? "month" : "months"}` : ""];
   return parts.filter(Boolean).join(" ");
+}
+
+/** How the entry line reads for each type: "Bought 0.002 BTC on Binance". */
+export const TYPE_WORDS: Record<TxType, { label: string; verb: string; linker: string }> = {
+  BUY: { label: "Bought", verb: "Bought", linker: "on" },
+  SELL: { label: "Sold", verb: "Sold", linker: "on" },
+  REWARD: { label: "Reward", verb: "Received", linker: "as a reward on" },
+  DIVIDEND: { label: "Dividend", verb: "Dividend of", linker: "on" },
+  TRANSFER: { label: "Transfer", verb: "Moved", linker: "out of" },
+  DEPOSIT: { label: "Deposit", verb: "Deposited", linker: "to" },
+  WITHDRAW: { label: "Withdrawal", verb: "Withdrew", linker: "from" },
+};
+
+/**
+ * A ledger row's total in its own currency: units × price plus the fee on a buy, minus it on
+ * a sell. Dividends are their cash; deposits and withdrawals are the pesos entered. Null when
+ * there's no price, or the fee is in another currency and can't be added here.
+ */
+export function txTotal(tx: Pick<Transaction, "type" | "units" | "price" | "price_currency" | "fee" | "fee_currency" | "asset" | "php_amount">): { value: number; currency: string } | null {
+  if (tx.type === "DIVIDEND") return { value: tx.units, currency: tx.price_currency };
+  if (tx.type === "DEPOSIT" || tx.type === "WITHDRAW") return tx.php_amount !== null ? { value: tx.php_amount, currency: "PHP" } : null;
+  if (tx.price === null) return null;
+  const gross = tx.units * tx.price;
+  if (tx.type === "REWARD") return { value: gross, currency: tx.price_currency };
+  if (tx.type !== "BUY" && tx.type !== "SELL") return null;
+  const feeInPrice = tx.fee_currency === null || tx.fee_currency === tx.price_currency;
+  const fee = feeInPrice ? tx.fee : 0;
+  if (!feeInPrice && tx.fee_currency !== tx.asset) return null; // e.g. a BNB fee: the total isn't one currency
+  return { value: tx.type === "BUY" ? gross + fee : gross - fee, currency: tx.price_currency };
 }

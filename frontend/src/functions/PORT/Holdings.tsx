@@ -99,7 +99,11 @@ function HoldingsTable({ p }: { p: Portfolio }) {
   const cur = p.currency;
   const d = moneyDecimals(cur);
   const priced = p.holdings.filter((h) => h.value !== null);
-  const sum = (pick: (h: (typeof priced)[number]) => number | null) => priced.reduce((acc, h) => acc + (pick(h) ?? 0), 0);
+  // A column's total, or null (shown as —) when no row has a number in it.
+  const sum = (pick: (h: (typeof priced)[number]) => number | null) => {
+    const known = priced.map(pick).filter((v): v is number => v !== null);
+    return known.length ? known.reduce((acc, v) => acc + v, 0) : null;
+  };
   const totalPnl = sum((h) => h.pnl);
   const totalCost = sum((h) => h.cost);
 
@@ -150,7 +154,7 @@ function HoldingsTable({ p }: { p: Portfolio }) {
             <td colSpan={3} />
             <td className="px-1.5 text-right"><Num value={p.totals.holdings_value} decimals={d} currency={cur} /></td>
             <td className="px-1.5 text-right"><Num value={totalPnl} change decimals={d} currency={cur} /></td>
-            <td className="px-1.5 text-right"><Num value={totalCost ? (totalPnl / totalCost) * 100 : null} change percent decimals={2} /></td>
+            <td className="px-1.5 text-right"><Num value={totalPnl !== null && totalCost ? (totalPnl / totalCost) * 100 : null} change percent decimals={2} /></td>
             <td className="px-1.5 text-right"><Num value={p.totals.day_change} change decimals={d} currency={cur} /></td>
             <td className="px-1.5 text-right"><Num value={sum((h) => h.weight_pct)} percent decimals={1} /></td>
           </tr>

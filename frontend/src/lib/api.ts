@@ -271,6 +271,17 @@ export function combineMeta(...metas: (Meta | null)[]): Meta | null {
   };
 }
 
+export type TickerMatch = {
+  ticker: string; // what to type here: BTC, NVDA, 7203.T
+  symbol: string; // Yahoo's symbol
+  name: string | null;
+  type: string | null; // Yahoo quoteType: EQUITY, ETF, CRYPTOCURRENCY ...
+  exchange: string | null;
+  source: "alias" | "yours" | "yahoo";
+};
+
+export type TickerSearch = { query: string; results: TickerMatch[]; error: string | null };
+
 // ---- Portfolio, yield, and goal (Phase 4) ----
 
 export type TxType = "BUY" | "SELL" | "DEPOSIT" | "WITHDRAW" | "DIVIDEND" | "REWARD" | "TRANSFER";
@@ -331,7 +342,7 @@ export type Portfolio = {
     value: number;
     holdings_value: number;
     cash: number;
-    cost: number;
+    cost: number | null; // null when no holding has a buy price
     unrealized: number | null;
     unrealized_pct: number | null;
     realized: number;

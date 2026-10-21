@@ -3,7 +3,9 @@ import type { Account, Transaction } from "./api";
 import { moneyDecimals, unitDecimals } from "./format";
 import {
   accountCurrency,
+  accountOptions,
   barWidth,
+  defaultAccount,
   emptyForm,
   formatDuration,
   formatMonth,
@@ -12,6 +14,7 @@ import {
   parseAmount,
   projectionSeries,
   toInput,
+  txTotal,
   typeFields,
   yieldSourceLabel,
 } from "./portfolio";
@@ -118,5 +121,36 @@ describe("display helpers", () => {
     expect(formatDuration(24)).toBe("2 years");
     expect(formatDuration(0)).toBe("Reached");
     expect(formatDuration(null)).toBe("—");
+  });
+});
+
+describe("txTotal", () => {
+  const base = { type: "BUY", units: 0.3, price: 560, price_currency: "USD", fee: 1, fee_currency: null, asset: "VOO", php_amount: null } as const;
+
+  it("adds the fee on a buy and subtracts it on a sell", () => {
+    expect(txTotal(base)).toEqual({ value: 169, currency: "USD" });
+    expect(txTotal({ ...base, type: "SELL" })).toEqual({ value: 167, currency: "USD" });
+  });
+
+  it("has no total without a price, or with a fee in another coin", () => {
+    expect(txTotal({ ...base, price: null })).toBeNull();
+    expect(txTotal({ ...base, fee_currency: "BNB" })).toBeNull();
+    expect(txTotal({ ...base, fee_currency: "VOO" })).toEqual({ value: 168, currency: "USD" });
+  });
+
+  it("uses the cash for dividends and the pesos for deposits", () => {
+    expect(txTotal({ ...base, type: "DIVIDEND", units: 1.5, price: null })).toEqual({ value: 1.5, currency: "USD" });
+    expect(txTotal({ ...base, type: "DEPOSIT", asset: "USD", units: 100, price: null, php_amount: 5800 })).toEqual({ value: 5800, currency: "PHP" });
+    expect(txTotal({ ...base, type: "DEPOSIT", asset: "USD", units: 100, price: null })).toBeNull();
+  });
+});
+
+
+describe("accounts", () => {
+  const list: Account[] = [binance, { id: 4, name: "No account", cash: [] }];
+  it("defaults to No account and lists it first", () => {
+    expect(defaultAccount(list)?.name).toBe("No account");
+    expect(accountOptions(list).map((a) => a.id)).toEqual([4, 2]);
+    expect(defaultAccount([binance])?.name).toBe("Binance");
   });
 });

@@ -34,7 +34,7 @@ The paper is cream, ink, and serif headlines. Every screen opens from **Look up*
 | `YLD` | Cash-flow yield | Yearly and monthly income per holding in pesos, after dividend withholding |
 | `GOAL` | Income goal | Income now vs your monthly target, capital needed, months to goal, and the projected path |
 
-A ticker alone (`NVDA`) opens its description. Up arrow in an empty Look up box recalls recent commands. International listings use Yahoo suffixes (`7203.T GP`, `0700.HK DES`), indices use `^` (`^N225 GP`).
+A ticker alone (`NVDA`) opens its description, and Look up suggests tickers as you type (your aliases and holdings first, then Yahoo's search). Up arrow in an empty Look up box recalls recent commands. International listings use Yahoo suffixes (`7203.T GP`, `0700.HK DES`), indices use `^` (`^N225 GP`).
 
 **USD / PHP toggle** (top right): switches the ticker tape's USD prices, the crypto board, coin descriptions, Home's crypto column, and price charts to pesos. Peso changes include the peso's own move. Charts convert every candle at the USD/PHP rate of its own day (or 5 minutes), never today's rate, so a peso chart shows what the asset was really worth in pesos at the time. Indices, exchange rates, and non-USD listings (like `7203.T`) stay in their own currency, labeled.
 
@@ -42,7 +42,7 @@ A ticker alone (`NVDA`) opens its description. Up arrow in an empty Look up box 
 
 The Portfolio page holds `PORT` and `TXN`; the Goal page holds `GOAL` and `YLD`. Everything is stored in a local SQLite file, `backend/data/tape.db` (git-ignored, never leaves your Mac).
 
-**Entering transactions (TXN).** What matters is what you bought, how much, and when. The price you paid is optional: with it, PORT also shows cost and P&L for that holding; without it, they show —. Type in the entry row above the table and press Enter. Pick the account first: the price currency follows it (Coins.ph: PHP, Binance: USDT, Gotrade: USD).
+**Entering transactions (TXN).** The entry line reads like a sentence: *Bought 0.0021978 BTC · any account · 21 Oct 2026*, then Enter. Only the units and the asset are needed. The account is optional, and **+ price**, **+ fee**, and **+ note** open extra boxes when you want them. With a price, PORT also shows cost and P&L for that holding; without it, they show —. Picking an account sets the price currency (Coins.ph: PHP, Binance: USDT, Gotrade: USD). The asset box suggests tickers as you type: "b" offers BTC and BNB at once, then Yahoo's matches.
 
 | Type | Units / amount | Also enter |
 | --- | --- | --- |
@@ -89,6 +89,7 @@ The portfolio holds USD-priced listings (US stocks and ETFs, and crypto) for now
 | `GET /api/portfolio?currency=PHP\|USD` | Totals, holdings, allocation, cash | Yahoo + local | 60 s prices |
 | `GET /api/yield` · `PUT`/`DELETE /api/yield/{asset}` | Income per holding in pesos; set or clear a staking or interest rate | Yahoo + local | 60 s prices |
 | `GET /api/goal` | Income now, capital needed, months to goal, month-by-month projection | Yahoo + local | 60 s prices |
+| `GET /api/search?q=b&yahoo=true\|false` | Ticker suggestions: aliases and your assets first, then Yahoo's search | Yahoo + local | 24 h per query |
 | `GET /api/settings` · `PUT` | Goal target, contribution, assumed yield, withholding, include-everything toggle | local | none |
 
 Tickers accept aliases: `BTC`, `ETH`, `XRP`, `SOL`, `BNB`, `ADA`, `DOGE`, `USDPHP`.

@@ -1,40 +1,46 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { Fragment, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { CsvLink } from "@/components/CsvLink";
 import { Select, TextButton, TextInput } from "@/components/Field";
 import { Pending, UpdateFailed } from "@/components/LoadState";
 import { Num } from "@/components/Num";
 import { Panel } from "@/components/Panel";
-import { apiSend, ApiError, combineMeta, type Account, type Transaction } from "@/lib/api";
+import { TickerInput } from "@/components/TickerInput";
+import { apiSend, ApiError, combineMeta, type Account, type CashCurrency, type Transaction } from "@/lib/api";
 import { priceDecimals, unitDecimals } from "@/lib/format";
 import {
   accountCurrency,
+  accountOptions,
   announcePortfolioChange,
   CASH_CURRENCIES,
+  defaultAccount,
   emptyForm,
   formFromTransaction,
   isCashCurrency,
   manilaToday,
+  NO_ACCOUNT,
   onPortfolioChange,
   toInput,
   TX_TYPES,
+  txTotal,
+  TYPE_WORDS,
   typeFields,
   type TxForm,
 } from "@/lib/portfolio";
 import type { FunctionScreenProps } from "@/lib/registry";
+import { HOLDABLE_TYPES } from "@/lib/search";
 import { useApi } from "@/lib/useApi";
 
 const HEADINGS: [string, string][] = [
-  ["Date", "w-[118px] text-left"],
-  ["Account", "w-[96px] text-left"],
-  ["Type", "w-[92px] text-left"],
-  ["Asset", "w-[84px] text-left"],
-  ["Units / amount", "w-[110px] text-right"],
-  ["Price", "w-[150px] text-right"],
-  ["Fee", "w-[120px] text-right"],
-  ["Pesos", "w-[120px] text-right"],
-  ["Note", "text-left"],
+  ["Date", "w-[104px] text-left"],
+  ["Account", "w-[104px] text-left"],
+  ["Type", "w-[84px] text-left"],
+  ["Asset", "w-[96px] text-left"],
+  ["Units", "text-right"],
+  ["Price", "text-right"],
+  ["Fee", "text-right"],
+  ["Total", "text-right"],
   ["", "w-[104px]"],
 ];
 
@@ -56,7 +62,7 @@ export function Transactions({ mnemonic, title }: FunctionScreenProps) {
     [reloadList, reloadAccounts],
   );
 
-  const accountList = accounts.data?.accounts ?? [];
+  const accountList = accountOptions(accounts.data?.accounts ?? []);
   const rows = list.data?.transactions ?? [];
 
   async function remove(id: number) {
@@ -71,7 +77,7 @@ export function Transactions({ mnemonic, title }: FunctionScreenProps) {
   }
 
   function onRowKey(e: KeyboardEvent<HTMLTableRowElement>, tx: Transaction) {
-    if (e.target !== e.currentTarget) return; // keys typed into a button or input belong to it
+    if (e.target !== e.currentTarget) return; // keys typed into a button belong to it
     const move = (step: number) => {
       const all = Array.from(e.currentTarget.parentElement?.querySelectorAll<HTMLTableRowElement>("tr[data-row]") ?? []);
       all[all.indexOf(e.currentTarget) + step]?.focus();
@@ -87,87 +93,79 @@ export function Transactions({ mnemonic, title }: FunctionScreenProps) {
 
   return (
     <Panel title={title} mnemonic={mnemonic} meta={combineMeta(list.meta, accounts.meta)} actions={<CsvLink path="/api/transactions?format=csv" />}>
-      <p className="mb-2 max-w-prose text-[13px] text-muted">
-        Every trade, reward, and deposit, newest first. What matters is what you bought, how much, and when. The price you paid
-        is optional: with it, PORT also shows your cost and P&amp;L; without it, those show —. Dollar prices convert to pesos at
-        Yahoo&apos;s USD/PHP on the trade date.
-      </p>
       <UpdateFailed error={list.data ? list.error : null} />
       {!list.data || !accounts.data ? (
         <Pending error={list.error ?? accounts.error} rows={6} />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px] table-fixed text-[13px]">
-            <thead>
-              <tr className="border-b border-ink">
-                {HEADINGS.map(([label, cls]) => (
-                  <th key={label} scope="col" className={`micro-label px-1.5 py-1 font-normal ${cls}`}>
-                    {label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <EntryRow formId="txn-new" accounts={accountList} submitLabel="Add" resetAfterSave />
-            </tbody>
-            <tbody className="border-t-[3px] border-double border-ink">
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={HEADINGS.length} className="px-1.5 py-2 text-muted">
-                    No transactions yet. Start with your first buy.
-                  </td>
+        <>
+          <EntryLine accounts={accountList} submitLabel="Add" resetAfterSave />
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[760px] text-[13px]">
+              <thead>
+                <tr className="border-t border-ink border-b">
+                  {HEADINGS.map(([label, cls]) => (
+                    <th key={label} scope="col" className={`micro-label px-1.5 py-1 font-normal ${cls}`}>
+                      {label}
+                    </th>
+                  ))}
                 </tr>
-              )}
-              {rows.map((tx) =>
-                editing === tx.id ? (
-                  <EntryRow
-                    key={tx.id}
-                    formId={`txn-${tx.id}`}
-                    accounts={accountList}
-                    initial={formFromTransaction(tx)}
-                    txId={tx.id}
-                    submitLabel="Save"
-                    onDone={() => setEditing(null)}
-                  />
-                ) : (
-                  <TxRow
-                    key={tx.id}
-                    tx={tx}
-                    confirming={confirming === tx.id}
-                    onKey={(e) => onRowKey(e, tx)}
-                    onEdit={() => {
-                      setConfirming(null);
-                      setEditing(tx.id);
-                    }}
-                    onAskDelete={() => setConfirming(tx.id)}
-                    onDelete={() => remove(tx.id)}
-                    onCancel={() => {
-                      setConfirming(null);
-                      setRowError(null);
-                    }}
-                  />
-                ),
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {rows.length === 0 && (
+                  <tr>
+                    <td colSpan={HEADINGS.length} className="px-1.5 py-2 text-muted">
+                      No transactions yet. Type your first one in the line above, e.g. Bought 0.0021978 BTC.
+                    </td>
+                  </tr>
+                )}
+                {rows.map((tx) =>
+                  editing === tx.id ? (
+                    <tr key={tx.id} className="border-b border-hairline bg-ink/[0.03]">
+                      <td colSpan={HEADINGS.length} className="px-1.5 py-2">
+                        <EntryLine accounts={accountList} initial={formFromTransaction(tx)} txId={tx.id} submitLabel="Save" onDone={() => setEditing(null)} />
+                      </td>
+                    </tr>
+                  ) : (
+                    <LedgerRow
+                      key={tx.id}
+                      tx={tx}
+                      confirming={confirming === tx.id}
+                      onKey={(e) => onRowKey(e, tx)}
+                      onEdit={() => {
+                        setConfirming(null);
+                        setEditing(tx.id);
+                      }}
+                      onAskDelete={() => setConfirming(tx.id)}
+                      onDelete={() => remove(tx.id)}
+                      onCancel={() => {
+                        setConfirming(null);
+                        setRowError(null);
+                      }}
+                    />
+                  ),
+                )}
+              </tbody>
+            </table>
+          </div>
+          {rowError && (
+            <p role="alert" className="mt-2 text-[13px]">
+              <span className="micro-label mr-2 text-ink">Not deleted</span>
+              {rowError}
+            </p>
+          )}
+          <p className="mt-2 text-[11px] text-muted">
+            Only the units and the asset are needed. With a price, PORT also shows cost and P&amp;L; dollar prices convert to pesos at
+            Yahoo&apos;s USD/PHP on the trade date. Keyboard: Tab to a row, then ↑ ↓ to move, E to edit, Delete to remove.
+          </p>
+        </>
       )}
-      {rowError && (
-        <p role="alert" className="mt-2 text-[13px]">
-          <span className="micro-label mr-2 text-ink">Not deleted</span>
-          {rowError}
-        </p>
-      )}
-      <p className="mt-2 text-[11px] text-muted">
-        Keyboard: Tab to a row, then ↑ ↓ to move, E to edit, Delete to remove, Esc to cancel. Enter saves the entry row.
-      </p>
     </Panel>
   );
 }
 
-// --- One saved transaction ----------------------------------------------------
+// --- One saved transaction ------------------------------------------------------
 
-function TxRow(props: {
+function LedgerRow(props: {
   tx: Transaction;
   confirming: boolean;
   onKey: (e: KeyboardEvent<HTMLTableRowElement>) => void;
@@ -177,76 +175,80 @@ function TxRow(props: {
   onCancel: () => void;
 }) {
   const { tx } = props;
-  const fields = typeFields(tx.type);
-  const feeIn = tx.fee_currency && tx.fee_currency !== tx.price_currency ? tx.fee_currency : null;
+  const isCash = tx.type === "DEPOSIT" || tx.type === "WITHDRAW" || tx.type === "DIVIDEND";
+  const feeIn = tx.fee_currency ?? tx.price_currency;
+  const total = txTotal(tx);
+  const dash = <span className="text-muted">—</span>;
 
   return (
-    <tr
-      data-row
-      tabIndex={0}
-      onKeyDown={props.onKey}
-      aria-label={`${tx.trade_date} ${tx.type} ${tx.asset}`}
-      className="h-7 border-b border-hairline focus:bg-ink/[0.04]"
-    >
-      <td className="px-1.5 font-mono text-[12px]">{tx.trade_date}</td>
-      <td className="truncate px-1.5">{tx.account}</td>
-      <td className="px-1.5 font-mono text-[12px] text-muted">{tx.type}</td>
-      <td className="px-1.5 font-mono text-[12px] font-medium">{tx.asset}</td>
-      <td className="px-1.5 text-right">
-        <Num value={tx.units} decimals={fields.unitsLabel === "Units" ? unitDecimals(tx.units) : 2} />
-      </td>
-      <td className="px-1.5 text-right">
-        {tx.price !== null ? <Num value={tx.price} decimals={priceDecimals(tx.asset, tx.price)} currency={tx.price_currency} /> : <span className="text-muted">—</span>}
-        {tx.type === "DIVIDEND" && <span className="font-mono text-[11px] text-muted">{tx.price_currency}</span>}
-      </td>
-      <td className="px-1.5 text-right">
-        {tx.fee ? (
-          <>
-            <Num value={tx.fee} decimals={unitDecimals(tx.fee)} />
-            <span className="ml-1 font-mono text-[11px] text-muted">{feeIn ?? tx.price_currency}</span>
-          </>
-        ) : (
-          <span className="text-muted">—</span>
-        )}
-      </td>
-      <td className="px-1.5 text-right">
-        {tx.peso_amount !== null ? (
-          <Num value={tx.peso_amount} decimals={0} currency="PHP" />
-        ) : (
-          <span className="text-muted">—</span>
-        )}
-      </td>
-      <td className="truncate px-1.5 text-muted" title={tx.note ?? undefined}>
-        {tx.note}
-      </td>
-      <td className="px-1.5 text-right whitespace-nowrap">
-        {props.confirming ? (
-          <span className="text-[12px]">
-            Delete?{" "}
-            <TextButton onClick={props.onDelete} className="ml-1 text-ink" autoFocus>
-              Yes
-            </TextButton>{" "}
-            <TextButton onClick={props.onCancel} className="ml-1">
-              No
-            </TextButton>
-          </span>
-        ) : (
-          <>
-            <TextButton onClick={props.onEdit}>Edit</TextButton>{" "}
-            <TextButton onClick={props.onAskDelete} className="ml-2">
-              Delete
-            </TextButton>
-          </>
-        )}
-      </td>
-    </tr>
+    <Fragment>
+      <tr
+        data-row
+        tabIndex={0}
+        onKeyDown={props.onKey}
+        aria-label={`${tx.trade_date} ${tx.type} ${tx.asset}`}
+        className={`h-7 focus:bg-ink/[0.04] ${tx.note ? "" : "border-b border-hairline"}`}
+      >
+        <td className="px-1.5 font-mono text-[12px]">{tx.trade_date}</td>
+        <td className={`truncate px-1.5 ${tx.account === NO_ACCOUNT ? "text-muted" : ""}`}>{tx.account === NO_ACCOUNT ? "—" : tx.account}</td>
+        <td className="px-1.5 font-mono text-[12px] text-muted">{tx.type}</td>
+        <td className="px-1.5 font-mono text-[12px] font-medium">{tx.asset}</td>
+        <td className="px-1.5 text-right">
+          <Num value={tx.units} decimals={isCash ? 2 : unitDecimals(tx.units)} />
+          {tx.type === "DIVIDEND" && <span className="ml-1 font-mono text-[11px] text-muted">{tx.price_currency}</span>}
+        </td>
+        <td className="px-1.5 text-right">{tx.price !== null ? <Num value={tx.price} decimals={priceDecimals(tx.asset, tx.price)} currency={tx.price_currency} /> : dash}</td>
+        <td className="px-1.5 text-right">
+          {tx.fee ? (
+            <>
+              <Num value={tx.fee} decimals={unitDecimals(tx.fee)} />
+              <span className="ml-1 font-mono text-[11px] text-muted">{feeIn}</span>
+            </>
+          ) : (
+            dash
+          )}
+        </td>
+        <td className="px-1.5 text-right">{total ? <Num value={total.value} decimals={total.currency === "PHP" ? 0 : 2} currency={total.currency} /> : dash}</td>
+        <td className="px-1.5 text-right whitespace-nowrap">
+          {props.confirming ? (
+            <span className="text-[12px]">
+              Delete?{" "}
+              <TextButton onClick={props.onDelete} className="ml-1 text-ink" autoFocus>
+                Yes
+              </TextButton>{" "}
+              <TextButton onClick={props.onCancel} className="ml-1">
+                No
+              </TextButton>
+            </span>
+          ) : (
+            <>
+              <TextButton onClick={props.onEdit}>Edit</TextButton>{" "}
+              <TextButton onClick={props.onAskDelete} className="ml-2">
+                Delete
+              </TextButton>
+            </>
+          )}
+        </td>
+      </tr>
+      {tx.note && (
+        <tr className="border-b border-hairline">
+          <td />
+          <td colSpan={HEADINGS.length - 1} className="truncate px-1.5 pb-1 text-[12px] leading-4 text-muted">
+            {tx.note}
+          </td>
+        </tr>
+      )}
+    </Fragment>
   );
 }
 
-// --- The entry row (also used to edit a row in place) ---------------------------
+// --- The entry line (also used to edit a row in place) ---------------------------
 
-function EntryRow(props: {
-  formId: string;
+function Word({ children }: { children: ReactNode }) {
+  return <span className="text-muted">{children}</span>;
+}
+
+function EntryLine(props: {
   accounts: Account[];
   initial?: TxForm;
   txId?: number;
@@ -254,25 +256,33 @@ function EntryRow(props: {
   resetAfterSave?: boolean;
   onDone?: () => void;
 }) {
-  const { accounts, formId } = props;
-  const [form, setForm] = useState<TxForm>(() => props.initial ?? emptyForm(manilaToday(), accounts[0]));
+  const { accounts } = props;
+  const [form, setForm] = useState<TxForm>(() => props.initial ?? emptyForm(manilaToday(), defaultAccount(accounts)));
+  const [shown, setShown] = useState(() => ({
+    price: Boolean(props.initial?.price),
+    fee: Boolean(props.initial?.fee),
+    pesos: Boolean(props.initial?.php_amount),
+    note: Boolean(props.initial?.note),
+  }));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const assetRef = useRef<HTMLInputElement>(null);
+  const unitsRef = useRef<HTMLInputElement>(null);
   const fields = typeFields(form.type);
+  const words = TYPE_WORDS[form.type];
+  const isCash = fields.pesos; // DEPOSIT, WITHDRAW: the asset is a currency
   const accountName = (id: string) => accounts.find((a) => String(a.id) === id)?.name;
   const set = (patch: Partial<TxForm>) => setForm((f) => ({ ...f, ...patch }));
+  const reveal = (key: keyof typeof shown) => setShown((s) => ({ ...s, [key]: true }));
 
   function changeAccount(id: string) {
     const currency = accountCurrency(accountName(id));
-    const cashAsset = typeFields(form.type).pesos && (form.asset === "" || isCashCurrency(form.asset));
-    set({ account_id: id, price_currency: currency, ...(cashAsset ? { asset: currency } : {}) });
+    set({ account_id: id, price_currency: currency, ...(isCash && (form.asset === "" || isCashCurrency(form.asset)) ? { asset: currency } : {}) });
   }
 
   function changeType(type: TxForm["type"]) {
     const cash = typeFields(type).pesos;
     const assetIsCash = isCashCurrency(form.asset);
-    const asset = cash && (form.asset === "" || assetIsCash) ? accountCurrency(accountName(form.account_id)) : !cash && assetIsCash ? "" : form.asset;
+    const asset = cash && (form.asset === "" || !assetIsCash) ? accountCurrency(accountName(form.account_id)) : !cash && assetIsCash ? "" : form.asset;
     set({ type, asset });
   }
 
@@ -290,8 +300,9 @@ function EntryRow(props: {
       setError(null);
       if (props.resetAfterSave) {
         // Keep the date, account, type, and currency for the next entry.
-        set({ asset: fields.pesos ? form.asset : "", units: "", price: "", fee: "", fee_currency: "", php_amount: "", note: "" });
-        assetRef.current?.focus();
+        set({ asset: isCash ? form.asset : "", units: "", price: "", fee: "", fee_currency: "", php_amount: "", note: "" });
+        setShown({ price: false, fee: false, pesos: false, note: false });
+        unitsRef.current?.focus();
       }
       announcePortfolioChange();
       props.onDone?.();
@@ -302,130 +313,138 @@ function EntryRow(props: {
     }
   }
 
-  const cancelOnEsc = (e: KeyboardEvent) => {
+  function onKeyDown(e: KeyboardEvent) {
     if (e.key === "Escape" && props.onDone) {
       e.preventDefault();
       props.onDone();
     }
-  };
-  const common = { form: formId, onKeyDown: cancelOnEsc, disabled: busy };
+  }
+  const common = { onKeyDown, disabled: busy };
+  const noAccount = accountName(form.account_id) === NO_ACCOUNT;
 
   return (
-    <>
-      <tr className="h-8 align-bottom" aria-label={props.txId === undefined ? "New transaction" : "Edit transaction"}>
-        <td className="px-1.5 pb-1">
-          <form id={formId} onSubmit={save} />
-          <TextInput {...common} type="date" aria-label="Date" value={form.trade_date} max={manilaToday()} onChange={(e) => set({ trade_date: e.target.value })} />
-        </td>
-        <td className="px-1.5 pb-1">
-          <Select {...common} aria-label="Account" value={form.account_id} onChange={(e) => changeAccount(e.target.value)}>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </Select>
-        </td>
-        <td className="px-1.5 pb-1">
-          <Select {...common} aria-label="Type" value={form.type} onChange={(e) => changeType(e.target.value as TxForm["type"])} className="font-mono">
-            {TX_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </Select>
-        </td>
-        <td className="px-1.5 pb-1">
-          <TextInput {...common} ref={assetRef} aria-label="Asset" placeholder={fields.asset} value={form.asset} onChange={(e) => set({ asset: e.target.value.toUpperCase() })} className="uppercase" />
-        </td>
-        <td className="px-1.5 pb-1">
-          <TextInput {...common} inputMode="decimal" aria-label={fields.unitsLabel} placeholder={fields.unitsLabel} value={form.units} onChange={(e) => set({ units: e.target.value })} className="text-right" />
-        </td>
-        <td className="px-1.5 pb-1">
-          {fields.price ? (
-            <div className="flex gap-1">
-              <TextInput {...common} inputMode="decimal" aria-label="Price per unit" placeholder="optional" value={form.price} onChange={(e) => set({ price: e.target.value })} className="text-right" />
-              <CurrencySelect {...common} value={form.price_currency} onChange={(v) => set({ price_currency: v })} />
-            </div>
-          ) : form.type === "DIVIDEND" ? (
-            <div className="flex justify-end">
-              <CurrencySelect {...common} value={form.price_currency} onChange={(v) => set({ price_currency: v })} label="Dividend currency" />
-            </div>
-          ) : null}
-        </td>
-        <td className="px-1.5 pb-1">
-          {fields.fee && (
-            <div className="flex gap-1">
-              <TextInput {...common} inputMode="decimal" aria-label="Fee" placeholder="fee" value={form.fee} onChange={(e) => set({ fee: e.target.value })} className="text-right" />
-              {fields.feeCurrency ? (
-                <TextInput {...common} aria-label="Fee currency" placeholder={form.price_currency} value={form.fee_currency} onChange={(e) => set({ fee_currency: e.target.value.toUpperCase() })} width="w-12" className="shrink-0 uppercase" />
-              ) : (
-                <span className="self-end font-mono text-[11px] text-muted">{form.asset || "coin"}</span>
-              )}
-            </div>
-          )}
-        </td>
-        <td className="px-1.5 pb-1">
-          {fields.pesos ? (
-            <TextInput
-              {...common}
-              inputMode="decimal"
-              aria-label={form.type === "DEPOSIT" ? "Pesos sent, optional" : "Pesos received, optional"}
-              placeholder={form.type === "DEPOSIT" ? "₱ sent (opt.)" : "₱ received (opt.)"}
-              value={form.php_amount}
-              onChange={(e) => set({ php_amount: e.target.value })}
-              className="text-right"
-            />
-          ) : (
-            <span className="block text-right text-[11px] text-muted">{form.price_currency === "PHP" ? "price × units" : "at Yahoo rate"}</span>
-          )}
-        </td>
-        <td className="px-1.5 pb-1">
-          <TextInput {...common} mono={false} aria-label="Note" placeholder="note" value={form.note} onChange={(e) => set({ note: e.target.value })} />
-        </td>
-        <td className="px-1.5 pb-1 text-right whitespace-nowrap">
-          <button type="submit" form={formId} disabled={busy} className="border-b-2 border-ink text-[12px] text-ink disabled:opacity-50">
+    <form onSubmit={save} aria-label={props.txId === undefined ? "New transaction" : "Edit transaction"} className="text-[13px]">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-2">
+        <Select {...common} aria-label="Type" value={form.type} onChange={(e) => changeType(e.target.value as TxForm["type"])} width="w-28" className="font-medium">
+          {TX_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {TYPE_WORDS[t].label}
+            </option>
+          ))}
+        </Select>
+        {words.verb !== words.label && <Word>{words.verb.toLowerCase()}</Word>}
+        <TextInput
+          {...common}
+          ref={unitsRef}
+          inputMode="decimal"
+          aria-label={fields.unitsLabel}
+          placeholder={fields.unitsLabel === "Units" ? "units" : "amount"}
+          value={form.units}
+          onChange={(e) => set({ units: e.target.value })}
+          width="w-28"
+          className="text-right"
+        />
+        {isCash ? (
+          <CurrencySelect {...common} label="Currency" value={isCashCurrency(form.asset) ? form.asset : "USD"} onChange={(v) => set({ asset: v })} />
+        ) : form.type === "DIVIDEND" ? (
+          <>
+            <CurrencySelect {...common} label="Dividend currency" value={form.price_currency} onChange={(v) => set({ price_currency: v })} />
+            <Word>from</Word>
+            <TickerInput {...common} label="Paid by" placeholder="ticker" value={form.asset} onChange={(v) => set({ asset: v })} types={HOLDABLE_TYPES} />
+          </>
+        ) : (
+          <TickerInput {...common} label="Asset" placeholder="ticker" value={form.asset} onChange={(v) => set({ asset: v })} types={HOLDABLE_TYPES} />
+        )}
+        <Word>{noAccount ? "·" : words.linker}</Word>
+        <Select {...common} aria-label="Account (optional)" value={form.account_id} onChange={(e) => changeAccount(e.target.value)} width="w-32" className={noAccount ? "text-muted" : ""}>
+          {accounts.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name === NO_ACCOUNT ? "any account" : a.name}
+            </option>
+          ))}
+        </Select>
+        <Word>·</Word>
+        <TextInput {...common} type="date" aria-label="Date" value={form.trade_date} max={manilaToday()} onChange={(e) => set({ trade_date: e.target.value })} width="w-36" />
+        <span className="ml-auto flex items-baseline gap-3">
+          <button type="submit" disabled={busy} className="border-b-2 border-ink text-[13px] text-ink disabled:opacity-50">
             {props.submitLabel} <span aria-hidden="true">⏎</span>
           </button>
-          {props.onDone && (
-            <TextButton onClick={props.onDone} className="ml-2">
-              Cancel
-            </TextButton>
-          )}
-        </td>
-      </tr>
+          {props.onDone && <TextButton onClick={props.onDone}>Cancel</TextButton>}
+        </span>
+      </div>
+
+      {/* Optional details, tucked away until wanted */}
+      <div className="mt-2 flex flex-wrap items-baseline gap-x-5 gap-y-2">
+        {fields.price &&
+          (shown.price ? (
+            <span className="flex items-baseline gap-2">
+              <Word>at</Word>
+              <TextInput {...common} inputMode="decimal" aria-label="Price per unit" placeholder="price" value={form.price} onChange={(e) => set({ price: e.target.value })} width="w-28" className="text-right" autoFocus={!props.initial} />
+              <CurrencySelect {...common} label="Price currency" value={form.price_currency} onChange={(v) => set({ price_currency: v })} />
+              <Word>per unit</Word>
+            </span>
+          ) : (
+            <TextButton onClick={() => reveal("price")}>+ price</TextButton>
+          ))}
+        {fields.fee &&
+          (shown.fee ? (
+            <span className="flex items-baseline gap-2">
+              <Word>{form.type === "TRANSFER" ? "network fee" : "fee"}</Word>
+              <TextInput {...common} inputMode="decimal" aria-label="Fee" placeholder="fee" value={form.fee} onChange={(e) => set({ fee: e.target.value })} width="w-20" className="text-right" autoFocus={!props.initial} />
+              {fields.feeCurrency ? (
+                <TextInput {...common} aria-label="Fee currency" placeholder={form.price_currency} value={form.fee_currency} onChange={(e) => set({ fee_currency: e.target.value.toUpperCase() })} width="w-16" className="uppercase" />
+              ) : (
+                <span className="font-mono text-[12px] text-muted">{form.asset || "coin"}</span>
+              )}
+            </span>
+          ) : (
+            <TextButton onClick={() => reveal("fee")}>+ fee</TextButton>
+          ))}
+        {fields.pesos &&
+          (shown.pesos ? (
+            <span className="flex items-baseline gap-2">
+              <Word>{form.type === "DEPOSIT" ? "pesos sent" : "pesos received"}</Word>
+              <TextInput {...common} inputMode="decimal" aria-label={form.type === "DEPOSIT" ? "Pesos sent" : "Pesos received"} placeholder="₱" value={form.php_amount} onChange={(e) => set({ php_amount: e.target.value })} width="w-28" className="text-right" autoFocus={!props.initial} />
+            </span>
+          ) : (
+            <TextButton onClick={() => reveal("pesos")}>+ pesos</TextButton>
+          ))}
+        {shown.note ? (
+          <span className="flex min-w-[16rem] flex-1 items-baseline gap-2">
+            <Word>note</Word>
+            <TextInput {...common} mono={false} aria-label="Note" placeholder="why, where, anything" value={form.note} onChange={(e) => set({ note: e.target.value })} autoFocus={!props.initial} />
+          </span>
+        ) : (
+          <TextButton onClick={() => reveal("note")}>+ note</TextButton>
+        )}
+      </div>
+
       {error && (
-        <tr>
-          <td colSpan={HEADINGS.length} className="px-1.5 pb-1">
-            <p role="alert" className="text-[13px]">
-              <span className="micro-label mr-2 text-ink">Not saved</span>
-              {error}
-            </p>
-          </td>
-        </tr>
+        <p role="alert" className="mt-2">
+          <span className="micro-label mr-2 text-ink">Not saved</span>
+          {error}
+        </p>
       )}
-    </>
+    </form>
   );
 }
 
 function CurrencySelect(props: {
-  value: TxForm["price_currency"];
-  onChange: (value: TxForm["price_currency"]) => void;
-  label?: string;
-  form: string;
+  value: CashCurrency;
+  onChange: (value: CashCurrency) => void;
+  label: string;
   disabled: boolean;
   onKeyDown: (e: KeyboardEvent) => void;
 }) {
   return (
     <Select
-      form={props.form}
       disabled={props.disabled}
       onKeyDown={props.onKeyDown}
-      aria-label={props.label ?? "Price currency"}
+      aria-label={props.label}
       value={props.value}
-      onChange={(e) => props.onChange(e.target.value as TxForm["price_currency"])}
+      onChange={(e) => props.onChange(e.target.value as CashCurrency)}
       width="w-16"
-      className="shrink-0 font-mono"
+      className="font-mono"
     >
       {CASH_CURRENCIES.map((c) => (
         <option key={c} value={c}>

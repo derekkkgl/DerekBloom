@@ -8,6 +8,7 @@ export const SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ["↑"], action: "In an empty box: step back through recent commands" },
   { keys: ["Esc"], action: "Close Look up" },
   { keys: ["Tab"], action: "Move between links, rows, and buttons on a page" },
+  { keys: ["↑", "↓", "Enter"], action: "In Look up or a ticker box: move through ticker suggestions and pick one" },
   { keys: ["↑", "↓"], action: "TXN: move between transactions (Tab to a row first)" },
   { keys: ["E"], action: "TXN: edit the selected transaction in place" },
   { keys: ["Delete"], action: "TXN: delete the selected transaction (asks first)" },

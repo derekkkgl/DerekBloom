@@ -3,14 +3,20 @@
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { commandHref, commandText, parseCommand, suggest, type Command } from "@/lib/command";
+import { commandHref, commandText, isTicker, parseCommand, suggest, type Command } from "@/lib/command";
 import { isPaletteShortcut, useGlobalKeydown } from "@/lib/hotkeys";
 import { FUNCTIONS } from "@/lib/registry";
+import { matchLabel } from "@/lib/search";
 import { useStoredString } from "@/lib/storage";
+import { useTickerSearch } from "@/lib/useTickerSearch";
 
 const HISTORY_KEY = "dailytape:history";
 const HISTORY_MAX = 20;
 const RECENT_SHOWN = 5;
+const TICKERS_SHOWN = 6;
+
+/** One line in the list: a command, the group heading it sits under, and an optional right-hand label. */
+type Entry = { cmd: Command; group: "Recent" | "Functions" | "Tickers"; label?: string };
 
 function parseHistory(raw: string): string[] {
   try {
@@ -51,7 +57,34 @@ export function CommandPalette() {
     [history, input],
   );
   const matches = useMemo(() => suggest(input, FUNCTIONS, input.trim() ? 8 : FUNCTIONS.length), [input]);
-  const items = [...recent, ...matches];
+
+  // One word that could be a ticker: also search tickers, so "b" offers BTC. Each opens its DES.
+  const words = input.trim().toUpperCase().split(/\s+/).filter(Boolean);
+  const tickerQuery = open && words.length === 1 && isTicker(words[0]) ? words[0] : "";
+  const tickerSearch = useTickerSearch(tickerQuery, undefined, TICKERS_SHOWN);
+  const entries = useMemo(() => {
+    const word = tickerQuery;
+    const tickers: Entry[] = tickerSearch.results.map((m) => ({
+      cmd: { mnemonic: "DES", ticker: m.ticker, title: m.name ?? m.ticker },
+      group: "Tickers",
+      label: matchLabel(m),
+    }));
+    const functions: Entry[] = matches.map((cmd) => ({ cmd, group: "Functions" }));
+    // A function whose mnemonic starts with the word ("WE" -> WEI) stays on top; otherwise tickers lead.
+    const functionsFirst = word !== "" && matches.some((m) => !m.ticker && m.mnemonic.startsWith(word));
+    const ordered = [
+      ...recent.map((cmd): Entry => ({ cmd, group: "Recent" })),
+      ...(functionsFirst ? [...functions, ...tickers] : [...tickers, ...functions]),
+    ];
+    const seen = new Set<string>();
+    return ordered.filter((e) => {
+      const key = commandText(e.cmd);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [recent, matches, tickerSearch.results, tickerQuery]);
+  const items = entries.map((e) => e.cmd);
 
   useGlobalKeydown((e) => {
     if (!isPaletteShortcut(e)) return;
@@ -158,11 +191,9 @@ export function CommandPalette() {
       {open && (
         <div className="absolute right-0 top-full z-20 mt-1 w-[min(440px,calc(100vw-32px))] border border-ink bg-paper">
           <ul id={listId} role="listbox" aria-label="Commands" className="max-h-[60vh] overflow-y-auto py-1">
-            {items.map((cmd, i) => (
-              <li key={`${i < recent.length ? "r" : "f"}-${commandText(cmd)}`} role="presentation">
-                {(i === 0 || i === recent.length) && (
-                  <p className="micro-label px-3 pt-1.5 pb-0.5">{i < recent.length ? "Recent" : "Functions"}</p>
-                )}
+            {entries.map(({ cmd, group, label }, i) => (
+              <li key={`${group}-${commandText(cmd)}`} role="presentation">
+                {(i === 0 || entries[i - 1].group !== group) && <p className="micro-label px-3 pt-1.5 pb-0.5">{group}</p>}
                 <div
                   id={`${listId}-${i}`}
                   role="option"
@@ -173,20 +204,32 @@ export function CommandPalette() {
                     run(cmd);
                   }}
                   onMouseEnter={() => setActive(i)}
-                  className={`grid cursor-pointer grid-cols-[3.5rem_1fr_auto] items-baseline gap-2 border-l-2 px-3 py-1 text-[13px] leading-5 ${
+                  className={`grid cursor-pointer grid-cols-[4.5rem_1fr_auto] items-baseline gap-2 border-l-2 px-3 py-1 text-[13px] leading-5 ${
                     i === active ? "border-ink bg-ink/[0.06]" : "border-transparent"
                   }`}
                 >
-                  <span className="font-mono text-[12px] font-medium">{cmd.mnemonic}</span>
-                  <span className="truncate">{cmd.title}</span>
-                  <span className="font-mono text-[12px] text-muted">{cmd.ticker ?? (cmd.problem ? "+ ticker" : "")}</span>
+                  {group === "Tickers" ? (
+                    <>
+                      <span className="truncate font-mono text-[12px] font-medium">{cmd.ticker}</span>
+                      <span className="truncate">{cmd.title}</span>
+                      <span className="font-mono text-[11px] text-muted">{label}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-mono text-[12px] font-medium">{cmd.mnemonic}</span>
+                      <span className="truncate">{cmd.title}</span>
+                      <span className="font-mono text-[12px] text-muted">{cmd.ticker ?? (cmd.problem ? "+ ticker" : "")}</span>
+                    </>
+                  )}
                 </div>
               </li>
             ))}
-            {items.length === 0 && <li className="px-3 py-2 text-[13px] text-muted">No matching function.</li>}
+            {items.length === 0 && (
+              <li className="px-3 py-2 text-[13px] text-muted">{tickerSearch.searching ? "Searching tickers…" : "No matching function or ticker."}</li>
+            )}
           </ul>
           <p className="border-t border-hairline px-3 py-1.5 text-[11px] leading-4 text-muted" aria-live="polite">
-            {problem ?? "Type TICKER FUNCTION, e.g. NVDA GP. ↑↓ move, Enter opens, Esc closes."}
+            {problem ?? "Type TICKER FUNCTION, e.g. NVDA GP. A ticker alone opens its description. ↑↓ move, Enter opens, Esc closes."}
           </p>
         </div>
       )}
