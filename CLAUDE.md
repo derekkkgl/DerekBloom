@@ -62,20 +62,27 @@ start.sh                 # starts backend + frontend together, Ctrl+C stops both
 
 - **Function registry**: every terminal function is registered once with `{ mnemonic, title, description, needsTicker, component }`. The command palette, HELP screen, and autocomplete are generated from the registry. Adding a function never means editing the palette.
 - **Command syntax** works like Bloomberg: `<TICKER> <MNEMONIC>` then Enter (`NVDA GP`), or a mnemonic alone for market-wide screens (`WEI`). Typing a ticker alone opens `DES`. Up arrow recalls history.
-- **Panels**: every function renders inside a `Panel` with a header bar: mnemonic and title on the left, ticker, data source, and last-updated time on the right.
+- **Panels**: every function renders inside a `Panel` (a ruled section, see Visual design) with a header bar: mnemonic and title on the left, ticker, data source, and last-updated time on the right.
 - **Numbers**: one `Num` component and one formatter module handle every number: monospace, `tabular-nums`, right-aligned, sign color, thousands separators, compact suffixes (K, M, B, T), and currency symbol.
 - **Data fetching**: a small typed fetch hook with polling interval per function. Show loading skeletons, clear error states with the upstream message, and the stale flag when present. Never show fake or placeholder numbers once wired to the API.
 
-## Visual design: Swiss International x Modular Glass
+## Visual design: Morning Broadsheet
 
-The goal is a precise instrument, not a SaaS dashboard. If a choice looks like a generic web app (rounded cards, soft shadows, big padding, gradient buttons, emoji, pill badges everywhere), it is wrong.
+A personal market paper: cream paper, black ink, serif headlines, and data set like the Financial Times. The goal is something Derek reads each morning, not a SaaS dashboard and not a trader's cockpit. If a choice looks like a generic web app (rounded cards, soft shadows, big padding, gradient buttons, emoji, pill badges everywhere), it is wrong.
 
-- **Background**: matte charcoal `#0E1116` with a faint 1px grid pattern (`white/[0.03]`, 24px cells) so the frosted panels have something to blur.
-- **Panels**: `bg-[#161b22]/80 backdrop-blur-md border border-white/10 rounded-none`. No shadows. No nested cards. Panels touch on a shared grid with 1px gutters.
-- **Rules**: clean 1px horizontal rules (`border-white/10`) between rows and sections. Vertical rules only between columns of a panel grid.
-- **Typography**: Inter for UI and headers, JetBrains Mono for every number, ticker, and timestamp. Micro labels are 11px uppercase with `tracking-wider` in slate. Data rows are 12 to 13px with 24 to 28px row height. Large display numbers only in the hero of DES and PORT.
-- **Color**: `#F0F6FC` primary text, `#8B949E` labels, `#3FB950` upticks, `#FF7B72` downticks. Everything else is monochrome. Focus and active states use white borders, not color. The only extra colors allowed are the linked-panel group tags (see ROADMAP).
-- **Spacing**: 4px base unit. Tight padding (8px panel interior, 4px cell padding). Zero decorative whitespace.
+- **Paper**: flat cream `#F3EEE3` everywhere. No textures, gradients, or background patterns. Light mode only.
+- **Masthead**: "The Daily Tape" in the serif at 22px, section links (Home, Markets, Portfolio, Goal, News), the "Look up" command box, and the PHP/USD toggle on one line, closed by a 3px double rule in ink.
+- **No boxes**: content sits in sections separated by rules, never in cards. No borders around panels, no shadows, no rounded corners anywhere (`rounded-none`). A `Panel` is a section: a 1px ink rule on top, then its header bar.
+- **Rules**: 1px ink rule (`#141414`) above each section header and under table headers. 1px hairlines (`rgba(20,20,20,0.16)`) between data rows. Vertical hairlines only between columns, e.g. chart vs key stats.
+- **Typography**, one job per family:
+  - **Source Serif 4** (500 to 600) for the masthead, page titles (security names, section titles like "Your watchlist"), and story headlines on Home and News. Never for numbers, labels, or controls.
+  - **Inter** for UI text, navigation, controls, and table text.
+  - **JetBrains Mono** with `tabular-nums` for every number, ticker, date, and timestamp.
+  - Micro labels are 11px uppercase with `tracking-wider` in the muted ink. Data rows are 12 to 13px with 24 to 28px row height. Large display numbers (mono) only in the hero of DES, GP, and PORT.
+- **Color**: `#141414` ink for primary text, `#5E5A52` muted ink for labels and secondary text, `#166B30` upticks, `#B42318` downticks (both pass 4.5:1 on the paper). Everything else is ink on paper. The only extra colors allowed are the linked-panel group tags (see ROADMAP).
+- **Controls**: text buttons, not filled buttons. The active state is ink text with a 2px ink underline, and inactive is muted ink. Inputs are a single ink bottom rule. Focus is a 1px ink outline, never color.
+- **Charts** (`lightweight-charts`): paper background, horizontal hairline grid only, no vertical grid, no chart borders, axis text in JetBrains Mono 11px muted ink. Candles in the up/down colors. Line and area series in ink. Indicators in ink shades (SMA 20 `#9A9285`, SMA 50 `#5E5A52`, SMA 200 `#141414` dashed), each with a legend swatch. Volume bars in up/down colors at about 30% opacity. A legend line above the chart shows the hovered bar's OHLC and indicator values.
+- **Spacing**: 4px base unit. Tight padding (8 to 14px section interior, 4px cell padding). Zero decorative whitespace.
 - **Icons**: `lucide-react`, 14 to 16px, stroke 1.5, only where they carry meaning.
 - **Keyboard first**: `Cmd+K`, `Ctrl+K`, or `/` opens the palette. `Esc` closes. Arrow keys move through tables. Every action has a shortcut shown in HELP.
 - **Accessibility**: real buttons and inputs, visible focus, 4.5:1 contrast for text, up/down never shown by color alone (always a sign or arrow).
