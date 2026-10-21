@@ -7,6 +7,10 @@ __pycache__/
 # Secrets
 .env
 
+# Your portfolio database and any scratch copies
+backend/data/
+*.db
+
 # Node (Phase 2+)
 node_modules/
 .next/

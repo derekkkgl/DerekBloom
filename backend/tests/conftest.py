@@ -1,4 +1,4 @@
-"""Shared test setup. Every test runs with the network switched off and an empty cache."""
+"""Shared test setup. Every test runs with the network switched off, an empty cache, and its own database."""
 
 import socket
 
@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.cache import cache
+from app.db.connection import connect
 from app.main import app
 
 
@@ -19,6 +20,21 @@ def no_network(monkeypatch):
     monkeypatch.setattr(socket.socket, "connect", blocked)
     monkeypatch.setattr(socket, "create_connection", blocked)
     monkeypatch.setattr(socket, "getaddrinfo", blocked)
+
+
+@pytest.fixture(autouse=True)
+def temp_db(tmp_path, monkeypatch):
+    """Each test gets its own empty, migrated database file."""
+    path = tmp_path / "tape.db"
+    monkeypatch.setenv("TAPE_DB", str(path))
+    return path
+
+
+@pytest.fixture
+def db(temp_db):
+    conn = connect()
+    yield conn
+    conn.close()
 
 
 @pytest.fixture(autouse=True)

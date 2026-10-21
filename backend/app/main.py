@@ -5,6 +5,8 @@ Interactive docs:   http://localhost:8000/docs
 """
 
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -13,17 +15,25 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.errors import ApiError
+from app.db.connection import connect
 from app.routers import crypto, des, markets, news, security, system
 from app.routers.system import VERSION
 
 log = logging.getLogger("terminal")
 
-app = FastAPI(title="The Daily Tape API", version=VERSION)
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    connect().close()  # create or migrate the database now, so a schema problem shows at startup
+    yield
+
+
+app = FastAPI(title="The Daily Tape API", version=VERSION, lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
     expose_headers=["X-Data-Source", "X-Data-As-Of", "X-Data-Stale"],
 )
