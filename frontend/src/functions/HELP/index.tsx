@@ -1,9 +1,5 @@
-import { ComingSoon } from "@/components/ComingSoon";
 import type { TerminalFunction } from "@/lib/registry";
-
-function Directory() {
-  return <ComingSoon phase={3}>A directory of every function with its syntax and keyboard shortcuts, generated from the registry.</ComingSoon>;
-}
+import { Directory } from "./Directory";
 
 export const HELP: TerminalFunction = {
   mnemonic: "HELP",

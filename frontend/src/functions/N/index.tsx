@@ -1,9 +1,5 @@
-import { ComingSoon } from "@/components/ComingSoon";
 import type { TerminalFunction } from "@/lib/registry";
-
-function NewsWire() {
-  return <ComingSoon phase={3}>Markets and crypto headlines from CNBC, MarketWatch, CoinDesk, Cointelegraph, and Decrypt, newest first.</ComingSoon>;
-}
+import { NewsWire } from "./NewsWire";
 
 export const N: TerminalFunction = {
   mnemonic: "N",
