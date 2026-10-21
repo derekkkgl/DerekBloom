@@ -10,7 +10,9 @@ TICKERS=(AAPL NVDA VOO 7203.T BTC ETH "PHP=X")
 PASS=0
 FAIL=0
 
-# check <expected status> <path> [json|csv]
+# check <expected status> <path> [json|csv|local]
+#   local:   data from your own database, which may be empty, so only the envelope is checked.
+#   csv-any: a CSV that may have no rows yet.
 check() {
   local expected="$1" path="$2" kind="${3:-json}"
   local body status seconds note=""
@@ -27,6 +29,12 @@ d = json.load(open(sys.argv[1])).get("data")
 if not d: print("empty data"); sys.exit()
 for k, v in d.items():
     if isinstance(v, list) and not v: print(f"empty {k}")
+' "$body" 2>&1)"
+  elif [[ "$expected" == "200" && "$kind" == "local" ]]; then
+    note="$(python3 -c '
+import json, sys
+body = json.load(open(sys.argv[1]))
+if "data" not in body or "meta" not in body: print("no data envelope")
 ' "$body" 2>&1)"
   elif [[ "$expected" == "200" && "$kind" == "csv" ]]; then
     [[ "$(wc -l < "$body")" -ge 2 ]] || note="csv has no rows"
@@ -73,6 +81,15 @@ for t in NVDA VOO 7203.T ETH BTC; do
   check 200 "/api/des/$t"
 done
 
+# Portfolio, yield, and goal read your own database (read-only here: nothing is written).
+for path in /api/transactions /api/accounts /api/settings /api/portfolio "/api/portfolio?currency=USD" /api/yield /api/goal; do
+  check 200 "$path" local
+done
+for path in /api/transactions /api/accounts /api/portfolio /api/yield /api/goal; do
+  sep="?"; [[ "$path" == *"?"* ]] && sep="&"
+  check 200 "$path${sep}format=csv" csv-any
+done
+
 # These must fail cleanly.
 check 400 "/api/quote/BAD%24"
 check 404 /api/quote/ZZZZNOTREAL
@@ -80,6 +97,7 @@ check 400 "/api/chart/NVDA?range=1y&interval=1m"
 check 400 "/api/quotes?symbols="
 check 400 "/api/chart/NVDA?currency=EUR"
 check 404 /api/des/ZZZZNOTREAL
+check 400 "/api/portfolio?currency=EUR"
 
 echo
 echo "$PASS passed, $FAIL failed"

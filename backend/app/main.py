@@ -16,7 +16,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.errors import ApiError
 from app.db.connection import connect
-from app.routers import crypto, des, markets, news, portfolio, security, system
+from app.routers import crypto, des, goal, markets, news, portfolio, security, system
 from app.routers.system import VERSION
 
 log = logging.getLogger("terminal")
@@ -74,3 +74,4 @@ app.include_router(des.router)
 app.include_router(news.router)
 app.include_router(crypto.router)
 app.include_router(portfolio.router)
+app.include_router(goal.router)

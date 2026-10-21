@@ -87,10 +87,18 @@ def fetch_history(symbol: str, interval: str, period: str | None = None, start: 
     return df, ticker.get_history_metadata() or {}
 
 
-def fetch_download(symbols: list[str], start: date) -> pd.DataFrame:
+def fetch_download(symbols: list[str], start: date, actions: bool = False) -> pd.DataFrame:
+    """Daily bars for many symbols in one request. actions=True adds Dividends and Stock Splits columns."""
     with _download_lock:
         return yf.download(
-            symbols, start=start, interval="1d", group_by="column", auto_adjust=False, progress=False, threads=True
+            symbols,
+            start=start,
+            interval="1d",
+            group_by="column",
+            auto_adjust=False,
+            actions=actions,
+            progress=False,
+            threads=True,
         )
 
 

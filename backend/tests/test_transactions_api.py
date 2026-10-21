@@ -1,15 +1,7 @@
 import pytest
 
 from app.services import yahoo
-
-INFO = {
-    "BTC-USD": {"regularMarketPrice": 60_000.0, "shortName": "Bitcoin USD", "quoteType": "CRYPTOCURRENCY", "currency": "USD"},
-    "BNB-USD": {"regularMarketPrice": 600.0, "shortName": "BNB USD", "quoteType": "CRYPTOCURRENCY", "currency": "USD"},
-    "VOO": {"regularMarketPrice": 500.0, "shortName": "Vanguard S&P 500 ETF", "quoteType": "ETF", "currency": "USD"},
-    "NVDA": {"regularMarketPrice": 180.0, "shortName": "NVIDIA", "quoteType": "EQUITY", "currency": "USD"},
-    "7203.T": {"regularMarketPrice": 2_900.0, "shortName": "Toyota", "quoteType": "EQUITY", "currency": "JPY"},
-    "^GSPC": {"regularMarketPrice": 6_000.0, "shortName": "S&P 500", "quoteType": "INDEX", "currency": "USD"},
-}
+from tests.fakes import INFO
 
 
 @pytest.fixture(autouse=True)

@@ -4,10 +4,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core.envelope import Format, csv_response, ok_local
+from app.core.envelope import Format, csv_response, ok, ok_local
 from app.core.errors import BadRequest, NotFound
 from app.db.connection import get_db, query
 from app.services import transactions as txn
+from app.services.portfolio import Currency, build_snapshot, portfolio_view
 from app.services.transactions import CashCurrency, TransactionIn
 
 router = APIRouter(prefix="/api", tags=["portfolio"])
@@ -103,3 +104,19 @@ def set_cash(account_id: int, body: CashIn, conn: Db) -> dict:
     with conn:
         conn.execute(query("cash_upsert"), {"account_id": account_id, **body.model_dump()})
     return ok_local({"account_id": account_id, **body.model_dump()})
+
+
+# --- Holdings (PORT) -----------------------------------------------------------
+
+
+@router.get("/portfolio", response_model=None)
+def get_portfolio(conn: Db, currency: Currency = "PHP", format: Format = "json") -> dict | Response:
+    """Holdings at average cost, valued with Yahoo prices, plus cash, allocation, and FX cost per account.
+
+    PHP values use today's USD/PHP; costs use the peso rate of each trade (see costbasis.py).
+    """
+    snap = build_snapshot(conn, txn.manila_today())
+    body = ok(portfolio_view(snap, currency), "yahoo", snap.result)
+    if format == "csv":
+        return csv_response(body["data"]["holdings"], body["meta"], f"portfolio_{currency}")
+    return body

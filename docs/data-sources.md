@@ -4,7 +4,7 @@ Free sources only. Each entry says what it covers, its limits, how reliable it h
 
 ## Yahoo Finance (via `yfinance` 1.7.0)
 
-- **Used by:** `/api/quote`, `/api/quotes`, `/api/chart`, `/api/wei`, `/api/des` (stocks and ETFs)
+- **Used by:** `/api/quote`, `/api/quotes`, `/api/chart`, `/api/wei`, `/api/des` (stocks and ETFs), `/api/portfolio`, `/api/yield`, `/api/goal`, and asset lookups when you add a transaction
 - **Coverage:** US and international stocks and ETFs (Yahoo suffixes: `7203.T`, `0700.HK`, `ASML.AS`, `D05.SI`), global indices (`^GSPC`, `^N225` ...), FX (`PHP=X` = USD/PHP), futures (`GC=F`, `CL=F`), the dollar index (`DX-Y.NYB`), US 10Y yield (`^TNX`), and crypto price history (`BTC-USD`).
 - **Limits:** unofficial, no API key, and Yahoo rate-limits heavy use (`YFRateLimitError` → we return 502 or the stale copy). Intraday history only goes back so far: 1m bars about 7 days, 5m–30m about 60 days, 1h about 730 days. Some international index quotes are delayed.
 - **Quirks found:**
@@ -16,6 +16,9 @@ Free sources only. Each entry says what it covers, its limits, how reliable it h
   - GP in pesos (`/api/chart?currency=PHP`) converts every bar at the USD/PHP close of its own bar from `PHP=X` history: daily bars by trading date, intraday bars by time (5-minute FX bars exist, fetched over a longer window so weekend crypto bars use Friday's last rate). `PHP=X` monthly history starts Dec 2003, so earlier bars are dropped from a peso chart rather than guessed. Only USD prices convert; indices (points), exchange rates, and non-USD listings stay native with a note.
   - Close times for daily, weekly, and monthly bars come from the chart metadata: `exchangeTimezoneName` and `currentTradingPeriod.regular.end` (16:00 New York, 15:30 Tokyo; 24-hour markets such as crypto and futures report 23:59, read as the end of the day). There is no holiday calendar, so a week is assumed to close on Friday. `regularMarketTime` is the last trade.
   - Prices often arrive with float32 noise (e.g. `7712.56982421875`). We pass them through unchanged, and the frontend formatter rounds for display.
+  - Portfolio pricing (`/api/portfolio`, `/api/yield`, `/api/goal`) is one `yf.download(..., actions=True)` for every asset you hold plus `PHP=X`, from your earliest trade date (or 13 months back, whichever is earlier), cached 60 seconds. `actions=True` adds a `Dividends` column per ticker (the cash paid per share on the ex-date; crypto and `PHP=X` are all zeros). Checked on VOO: 4 payments in the last 12 months, 1.77 to 1.96 USD each. Batch daily bars come with a timezone-free date index, so a trade date matches the close of the same calendar day.
+  - A value in pesos uses today's last `PHP=X` close. A coin bought on Coins.ph is valued at Yahoo's USD price × USD/PHP, not Coins.ph's own peso price, so it can differ from the Coins.ph app by the exchange's spread.
+  - The portfolio holds USD-priced listings only (US stocks and ETFs, and crypto as `XXX-USD`). A ticker Yahoo prices in another currency (`7203.T` in JPY) is refused with a message until non-USD conversion is added. Coins without a short name in `app/core/tickers.py` are entered by their Yahoo symbol (`LINK-USD`).
 - **Reliability:** all 23 WEI symbols and the 7 Phase 1 test tickers returned data.
 - **Last checked:** 2026-10-21
 
