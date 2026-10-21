@@ -38,13 +38,13 @@ def _get(path: str, params: dict | None = None) -> Any:
     return res.json()
 
 
-def fetch_markets(vs_currency: str, sparkline: bool) -> list[dict]:
+def fetch_markets(vs_currency: str, sparkline: bool, per_page: int = TOP_N) -> list[dict]:
     return _get(
         "/coins/markets",
         {
             "vs_currency": vs_currency,
             "order": "market_cap_desc",
-            "per_page": TOP_N,
+            "per_page": per_page,
             "page": 1,
             "sparkline": str(sparkline).lower(),
             "price_change_percentage": "1h,24h,7d",
@@ -54,6 +54,14 @@ def fetch_markets(vs_currency: str, sparkline: bool) -> list[dict]:
 
 def fetch_global() -> dict:
     return _get("/global")
+
+
+def fetch_trending() -> dict:
+    return _get("/search/trending")
+
+
+def fetch_categories() -> list[dict]:
+    return _get("/coins/categories", {"order": "market_cap_desc"})
 
 
 def fetch_coin(coin_id: str) -> dict:
@@ -147,6 +155,132 @@ def shape_global(raw: dict) -> dict:
         "eth_dominance_pct": share.get("eth"),
         "active_coins": data.get("active_cryptocurrencies"),
     }
+
+
+# --- Movers (XMOV) -------------------------------------------------------------
+
+MOVERS_UNIVERSE = 200
+MOVER_WINDOWS = {"24h": "change_24h_pct", "7d": "change_7d_pct"}
+
+
+def get_top200() -> list[dict]:
+    """The top 200 coins in USD and PHP, without sparklines. XMOV ranks these by their move."""
+    usd = _wrap(lambda: fetch_markets("usd", sparkline=False, per_page=MOVERS_UNIVERSE))
+    php = _wrap(lambda: fetch_markets("php", sparkline=False, per_page=MOVERS_UNIVERSE))
+    return [{k: v for k, v in coin.items() if not k.startswith("sparkline")} for coin in shape_markets(usd, php)]
+
+
+def movers(coins: list[dict], window: str, n: int) -> dict:
+    """The n biggest gainers and losers over a window. Coins with no change for that window are left out."""
+    field = MOVER_WINDOWS[window]
+    moved = sorted((c for c in coins if c.get(field) is not None), key=lambda c: c[field], reverse=True)
+    return {
+        "window": window,
+        "universe": len(coins),
+        "gainers": [c for c in moved[:n] if c[field] > 0],
+        "losers": [c for c in reversed(moved[-n:]) if c[field] < 0],
+    }
+
+
+# --- Trending (XMOV) -----------------------------------------------------------
+
+
+def get_trending() -> list[dict]:
+    return shape_trending(_wrap(fetch_trending))
+
+
+def shape_trending(raw: dict) -> list[dict]:
+    """CoinGecko's most-searched coins in the last 24 hours, in its order. Prices come in USD only."""
+    coins = []
+    for entry in raw.get("coins") or []:
+        item = entry.get("item") or {}
+        data = item.get("data") or {}
+        change = data.get("price_change_percentage_24h") or {}
+        coins.append({
+            "id": item.get("id"),
+            "ticker": alias_for_coin(item.get("id")),
+            "symbol": (item.get("symbol") or "").upper() or None,
+            "name": item.get("name"),
+            "rank": item.get("market_cap_rank"),
+            "price_usd": data.get("price"),
+            "change_24h_pct": change.get("usd"),
+            "change_24h_pct_php": change.get("php"),
+            "market_cap_usd": parse_dollars(data.get("market_cap")),
+        })
+    if not coins:
+        raise UpstreamError("CoinGecko returned no trending coins")
+    return coins
+
+
+def parse_dollars(text: Any) -> float | None:
+    """'$20,307,092' -> 20307092.0. Trending sends market cap as display text."""
+    if isinstance(text, (int, float)):
+        return float(text)
+    if not isinstance(text, str):
+        return None
+    try:
+        return float(text.replace("$", "").replace(",", "").strip())
+    except ValueError:
+        return None
+
+
+# --- Sectors (XSEC) ------------------------------------------------------------
+
+# Sectors for the heat map, by CoinGecko category id, with a short label.
+# CoinGecko has about 800 categories; many overlap or are investor portfolios ("Made in USA"),
+# so the map shows a fixed list of real sectors. The table below the map lists the top 100 by size.
+SECTORS: dict[str, str] = {
+    "layer-1": "Layer 1",
+    "layer-2": "Layer 2",
+    "decentralized-finance-defi": "DeFi",
+    "artificial-intelligence": "AI",
+    "ai-agents": "AI agents",
+    "meme-token": "Memes",
+    "real-world-assets-rwa": "RWA",
+    "exchange-based-tokens": "Exchange tokens",
+    "decentralized-exchange": "DEX",
+    "lending-borrowing": "Lending",
+    "liquid-staking": "Liquid staking",
+    "oracle": "Oracles",
+    "privacy-coins": "Privacy",
+    "depin": "DePIN",
+    "gaming": "Gaming",
+    "zero-knowledge-zk": "Zero knowledge",
+    "infrastructure": "Infrastructure",
+    "prediction-markets": "Prediction markets",
+    "decentralized-perpetuals": "Perps DEX",
+    "tokenized-gold": "Tokenized gold",
+    "storage": "Storage",
+    "payment-solutions": "Payments",
+    "metaverse": "Metaverse",
+}
+TOP_CATEGORIES = 100
+
+
+def get_categories() -> list[dict]:
+    return shape_categories(_wrap(fetch_categories))
+
+
+def shape_categories(raw: list[dict]) -> list[dict]:
+    """The top 100 categories by market cap, plus any map sector outside them. `sector` is the map label or null."""
+    rows = [c for c in raw or [] if c.get("id") and isinstance(c.get("market_cap"), (int, float))]
+    if not rows:
+        raise UpstreamError("CoinGecko returned no categories")
+    rows.sort(key=lambda c: c["market_cap"], reverse=True)
+    kept = [(rank, c) for rank, c in enumerate(rows, start=1) if rank <= TOP_CATEGORIES or c["id"] in SECTORS]
+    return [
+        {
+            "rank": rank,
+            "id": c["id"],
+            "name": c.get("name"),
+            "sector": SECTORS.get(c["id"]),
+            "market_cap_usd": c.get("market_cap"),
+            "change_24h_pct": c.get("market_cap_change_24h"),
+            "volume_24h_usd": c.get("volume_24h"),
+            "top_coins": ", ".join(alias_for_coin(i) or i for i in c.get("top_3_coins_id") or []) or None,
+        }
+        for rank, c in kept
+    ]
 
 
 # --- Coin profile (DES) ------------------------------------------------------

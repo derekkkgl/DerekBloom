@@ -429,6 +429,14 @@ def get_quotes(symbols: list[str], today: date) -> dict[str, dict]:
     return shape_quotes(df, symbols)
 
 
+def get_usd_php(today: date) -> float:
+    """Yahoo's latest USD/PHP close: pesos per dollar."""
+    rate = get_quotes([FX_SYMBOL], today)[FX_SYMBOL]["last"]
+    if rate is None:
+        raise UpstreamError("Yahoo returned no USD/PHP rate (PHP=X)")
+    return rate
+
+
 def shape_quotes(df: pd.DataFrame | None, symbols: list[str]) -> dict[str, dict]:
     """Per-symbol last close, day change, and recent closes. Symbols with no data get null values."""
     if df is None or df.empty or "Close" not in df.columns.get_level_values(0):
