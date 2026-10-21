@@ -51,7 +51,7 @@ Works for US and international listings (Yahoo suffixes) unless noted.
 | Mnemonic | Function | Data | Phase |
 | --- | --- | --- | --- |
 | `DES` | Description | Profile, sector, key stats, valuation (P/E, forward P/E, P/B, P/S, EV/EBITDA), dividend yield computed from rate and price, beta, 52-week range | 1 to 3 |
-| `GP` | Price chart | Candles + volume, SMA 20/50/200, EMA, Bollinger Bands, RSI, MACD toggles, ranges 1D to MAX, compare overlay | 1 to 3 |
+| `GP` | Price chart | Candles + volume, SMA 20/50/200, ranges 1D to MAX, hover legend (Phase 3). EMA, Bollinger Bands, RSI, MACD toggles, compare overlay (Phase 6) | 1 to 3, 6 |
 | `GIP` | Intraday chart | 1m to 30m bars for the session | 6 |
 | `HP` | Historical prices | Table of OHLCV with period selector, Excel export | 6 |
 | `CN` | Company or coin news | RSS filtered to the ticker | 6 |
@@ -99,7 +99,7 @@ Next.js app in the Morning Broadsheet style (see CLAUDE.md): theme tokens (paper
 Done when: the shell loads with the masthead and the real ticker tape, every section link opens its page, and the palette opens with Cmd+K (or from "Look up") and lists registered functions.
 
 **Phase 3: Core screens (MVP)**
-`WEI`, `CRYPTO`, `GP`, `DES` (stocks and coins), `N`, `HELP` wired to the API, `start.sh`, README with setup steps and a screenshot.
+`WEI`, `CRYPTO`, `GP` (core chart: candles, volume, SMA 20/50/200, ranges), `DES` (stocks and coins), `N`, `HELP` wired to the API, Home front page wired to live data, `start.sh`, README with setup steps and a screenshot.
 Done when: `./start.sh` starts everything, `BTC GP` and `NVDA GP` draw real candlestick charts, `ETH DES` shows supply and all-time high, and the repo is pushed. **This is v1. Celebrate it.**
 
 **Phase 4: Portfolio, PHP, and goal**
@@ -110,7 +110,7 @@ Done when: Derek enters his real holdings and sees value and P&L in PHP and mont
 `XGLB`, `XMOV`, `XSEC`, `DEFI`, `WMAP`, `MOST`, `MOV`, `IMAP`, `FX`, `CMDTY`, `GC`, `RATES`, `ECO`. FRED key in `.env`.
 
 **Phase 6: Security depth**
-`GIP`, `HP`, `CN`, `FA`, `ERN`, `EE`, `DVD`, `HDS`, `OMON`, `RV`, `COMP`, `BETA`, `CORR`, `XCORR`, PORT risk tab.
+`GIP`, `HP`, `CN`, `FA`, `ERN`, `EE`, `DVD`, `HDS`, `OMON`, `RV`, `COMP`, `BETA`, `CORR`, `XCORR`, PORT risk tab, and the rest of `GP` (EMA, Bollinger Bands, RSI, MACD, compare overlay).
 
 **Phase 7: Workflow**
 Linked panels, `LP` layouts, `ALRT`, `NOTE`, `EQS`, `BRIEF`, `SQL`, `XL`.
