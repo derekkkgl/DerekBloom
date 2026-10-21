@@ -54,6 +54,11 @@ WARMUP_DAYS = {"1d": 320, "1wk": 1450, "1mo": 6200}
 
 SMA_WINDOWS = (20, 50, 200)
 
+QUOTES_HISTORY_DAYS = 45  # about 30 trading days: enough for the previous close and a 1-month sparkline
+SPARK_POINTS = 22  # about one month of daily closes
+
+FUND_TYPES = {"ETF", "MUTUALFUND"}
+
 # yf.download shares global state between calls, so batch downloads run one at a time.
 _download_lock = threading.Lock()
 
@@ -218,6 +223,19 @@ def shape_wei(df: pd.DataFrame | None, year: int) -> dict[str, dict]:
     return {row.symbol: _wei_values(closes.get(row.symbol), year) for row in WEI_ROWS}
 
 
+def _day_values(series: pd.Series) -> dict:
+    """Last close and day change from a series of closes with the NaNs already dropped."""
+    last = float(series.iloc[-1])
+    prev = float(series.iloc[-2]) if len(series) > 1 else None
+    return {
+        "last": last,
+        "prev_close": prev,
+        "change": last - prev if prev is not None else None,
+        "change_pct": _pct(last, prev),
+        "last_date": series.index[-1].date().isoformat(),
+    }
+
+
 def _wei_values(series: pd.Series | None, year: int) -> dict:
     empty = {"last": None, "change": None, "change_pct": None, "ytd_pct": None, "last_date": None}
     if series is None:
@@ -226,8 +244,7 @@ def _wei_values(series: pd.Series | None, year: int) -> dict:
     if series.empty:
         return empty
 
-    last = float(series.iloc[-1])
-    prev = float(series.iloc[-2]) if len(series) > 1 else None
+    day = _day_values(series)
     year_start = pd.Timestamp(year, 1, 1)
     if series.index.tz is not None:
         year_start = year_start.tz_localize(series.index.tz)
@@ -235,9 +252,95 @@ def _wei_values(series: pd.Series | None, year: int) -> dict:
     ytd_base = float(before_year.iloc[-1]) if not before_year.empty else None
 
     return {
-        "last": last,
-        "change": last - prev if prev is not None else None,
-        "change_pct": _pct(last, prev),
-        "ytd_pct": _pct(last, ytd_base),
-        "last_date": series.index[-1].date().isoformat(),
+        "last": day["last"],
+        "change": day["change"],
+        "change_pct": day["change_pct"],
+        "ytd_pct": _pct(day["last"], ytd_base),
+        "last_date": day["last_date"],
+    }
+
+
+# --- Batch quotes ------------------------------------------------------------
+
+
+def get_quotes(symbols: list[str], today: date) -> dict[str, dict]:
+    df = _call(lambda: fetch_download(symbols, today - timedelta(days=QUOTES_HISTORY_DAYS)))
+    return shape_quotes(df, symbols)
+
+
+def shape_quotes(df: pd.DataFrame | None, symbols: list[str]) -> dict[str, dict]:
+    """Per-symbol last close, day change, and recent closes. Symbols with no data get null values."""
+    if df is None or df.empty or "Close" not in df.columns.get_level_values(0):
+        raise UpstreamError("Yahoo returned no data for these symbols")
+    closes = df["Close"]
+    if isinstance(closes, pd.Series):  # a single-ticker download can come back without the ticker level
+        closes = closes.to_frame(symbols[0])
+    return {symbol: _quote_values(closes.get(symbol)) for symbol in symbols}
+
+
+def _quote_values(series: pd.Series | None) -> dict:
+    empty = {"last": None, "prev_close": None, "change": None, "change_pct": None, "last_date": None, "closes": []}
+    if series is None:
+        return empty
+    series = series.dropna()
+    if series.empty:
+        return empty
+    return {**_day_values(series), "closes": [float(v) for v in series.iloc[-SPARK_POINTS:]]}
+
+
+# --- Description (DES) -------------------------------------------------------
+
+
+def get_des(ticker: Ticker) -> dict:
+    return shape_des(ticker, _call(lambda: fetch_info(ticker.symbol)))
+
+
+def shape_des(ticker: Ticker, info: dict) -> dict:
+    """Profile, valuation, and 52-week range for a stock or fund. Missing fields stay null."""
+    price = _num(info.get("regularMarketPrice")) or _num(info.get("currentPrice"))
+    name = info.get("longName") or info.get("shortName")
+    if price is None and name is None:
+        raise NotFound(f"No data for ticker {ticker.input}")
+
+    quote_type = info.get("quoteType")
+    # Yahoo's own dividendYield field has changed units between versions, so compute it here.
+    dividend_rate = _num(info.get("dividendRate")) or _num(info.get("trailingAnnualDividendRate"))
+    dividend_yield = dividend_rate / price * 100 if dividend_rate is not None and price else None
+    ex_dividend = _num(info.get("exDividendDate"))
+
+    fund = None
+    if quote_type in FUND_TYPES:
+        fund = {
+            "family": info.get("fundFamily"),
+            "category": info.get("category"),
+            "total_assets": _num(info.get("totalAssets")) or _num(info.get("netAssets")),
+            "expense_ratio_pct": _num(info.get("netExpenseRatio")),  # already in percent: 0.03 means 0.03%
+        }
+
+    return {
+        "symbol": ticker.symbol,
+        "name": name,
+        "type": quote_type,
+        "exchange": info.get("fullExchangeName") or info.get("exchange"),
+        "currency": info.get("currency"),
+        "sector": info.get("sector"),
+        "industry": info.get("industry"),
+        "country": info.get("country"),
+        "website": info.get("website"),
+        "employees": _num(info.get("fullTimeEmployees")),
+        "summary": info.get("longBusinessSummary"),
+        "market_cap": _num(info.get("marketCap")),
+        "enterprise_value": _num(info.get("enterpriseValue")),
+        "beta": _num(info.get("beta")) or _num(info.get("beta3Year")),
+        "year_low": _num(info.get("fiftyTwoWeekLow")),
+        "year_high": _num(info.get("fiftyTwoWeekHigh")),
+        "pe_trailing": _num(info.get("trailingPE")),
+        "pe_forward": _num(info.get("forwardPE")),
+        "price_to_book": _num(info.get("priceToBook")),
+        "price_to_sales": _num(info.get("priceToSalesTrailing12Months")),
+        "ev_to_ebitda": _num(info.get("enterpriseToEbitda")),
+        "dividend_rate": dividend_rate,
+        "dividend_yield_pct": dividend_yield,
+        "ex_dividend_date": datetime.fromtimestamp(ex_dividend, tz=timezone.utc).date() if ex_dividend else None,
+        "fund": fund,
     }
