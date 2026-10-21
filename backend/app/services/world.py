@@ -20,13 +20,19 @@ SCREENS = {"most-active": "most_actives", "gainers": "day_gainers", "losers": "d
 SCREEN_COUNT = 25
 
 
+# Yahoo picks the stocks from slightly older numbers than the quotes it returns, so the movers are
+# re-sorted by the change actually shown. Most active keeps Yahoo's order (by volume).
+SORT_BY_CHANGE = {"gainers": True, "losers": False}  # True: biggest rise first
+
+
 def get_screen(name: str) -> dict:
-    return shape_screen(_call(lambda: yahoo.fetch_screen(SCREENS[name], SCREEN_COUNT)))
+    return shape_screen(_call(lambda: yahoo.fetch_screen(SCREENS[name], SCREEN_COUNT)), SORT_BY_CHANGE.get(name))
 
 
-def shape_screen(raw: dict | None) -> dict:
-    """Screener rows in Yahoo's order. An empty list is a real answer: nothing met the screen's filter today.
+def shape_screen(raw: dict | None, descending: bool | None = None) -> dict:
+    """Screener rows, ranked. An empty list is a real answer: nothing met the screen's filter today.
 
+    `descending` sorts by % change (rows without one go last); None keeps Yahoo's order.
     Prices are in dollars: the screeners only cover US listings.
     """
     if not isinstance(raw, dict) or not isinstance(raw.get("quotes"), list):
@@ -39,7 +45,7 @@ def shape_screen(raw: dict | None) -> dict:
         volume = _num(quote.get("regularMarketVolume"))
         average = _num(quote.get("averageDailyVolume3Month"))
         rows.append({
-            "rank": len(rows) + 1,
+            "rank": 0,
             "symbol": symbol,
             "name": quote.get("shortName") or quote.get("longName"),
             "price_usd": _num(quote.get("regularMarketPrice")),
@@ -52,6 +58,11 @@ def shape_screen(raw: dict | None) -> dict:
             "exchange": quote.get("fullExchangeName") or quote.get("exchange"),
             "currency": quote.get("currency"),
         })
+    if descending is not None:
+        sign = -1 if descending else 1
+        rows.sort(key=lambda r: (r["change_pct"] is None, sign * (r["change_pct"] or 0)))
+    for rank, row in enumerate(rows, start=1):
+        row["rank"] = rank
     return {"total": _num(raw.get("total")), "rows": rows}
 
 

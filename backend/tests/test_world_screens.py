@@ -40,6 +40,15 @@ def test_shape_screen_rows():
     assert newco["price_usd"] is None and newco["avg_volume_3m"] is None and newco["rel_volume"] is None
 
 
+def test_movers_are_sorted_by_the_change_shown():
+    quotes = [{"symbol": s, "regularMarketChangePercent": c} for s, c in [("A", 4.7), ("B", None), ("C", 5.5), ("D", 11.9)]]
+    gainers = world.shape_screen({"quotes": quotes}, descending=True)["rows"]
+    assert [(r["rank"], r["symbol"]) for r in gainers] == [(1, "D"), (2, "C"), (3, "A"), (4, "B")]
+    losers = world.shape_screen({"quotes": quotes}, descending=False)["rows"]
+    assert [r["symbol"] for r in losers] == ["A", "C", "D", "B"]
+    assert [r["symbol"] for r in world.shape_screen({"quotes": quotes})["rows"]] == ["A", "B", "C", "D"]
+
+
 def test_empty_screen_is_a_real_answer():
     assert world.shape_screen({"quotes": []}) == {"total": None, "rows": []}
 
