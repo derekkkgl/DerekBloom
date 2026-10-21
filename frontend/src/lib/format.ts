@@ -27,7 +27,8 @@ export function autoDecimals(value: number): number {
   const abs = Math.abs(value);
   if (abs === 0 || abs >= 1) return 2;
   if (abs >= 0.01) return 4;
-  return 6;
+  // Tiny coin prices (0.0000003) keep three significant digits instead of rounding to 0.000000.
+  return Math.min(Math.max(6, Math.floor(-Math.log10(abs)) + 3), 12);
 }
 
 // House style: Bitcoin is quoted in whole units (whole dollars or pesos).

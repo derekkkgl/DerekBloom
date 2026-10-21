@@ -16,12 +16,16 @@ export type Line = {
  * Ink lines on paper (lightweight-charts v5): hairline horizontal grid, no borders, mono axis text.
  * A legend above names each line with a swatch and shows its value at the hovered date.
  */
-export function LineChart({ lines, currency, decimals = 0, height = 260, label }: {
+export function LineChart({ lines, currency, decimals = 0, height = 260, label, daily = false, compact = false }: {
   lines: Line[];
   currency?: string;
   decimals?: number;
   height?: number;
   label: string;
+  /** Daily data: the hover legend shows the day, not just the month. */
+  daily?: boolean;
+  /** Hover values with K/M/B suffixes, for big totals. */
+  compact?: boolean;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -72,7 +76,7 @@ export function LineChart({ lines, currency, decimals = 0, height = 260, label }
           const point = param.seriesData.get(s);
           return point && "value" in point ? point.value : null;
         });
-        setHover({ date: timeText(param.time), values });
+        setHover({ date: timeText(param.time, daily), values });
       });
       chartRef.current = chart;
       setBuilt((n) => n + 1);
@@ -84,7 +88,7 @@ export function LineChart({ lines, currency, decimals = 0, height = 260, label }
       chartRef.current = null;
       seriesRef.current = [];
     };
-  }, [count, dashed, colors]);
+  }, [count, dashed, colors, daily]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -101,11 +105,11 @@ export function LineChart({ lines, currency, decimals = 0, height = 260, label }
     chart.timeScale().fitContent();
   }, [built, lines, decimals]);
 
-  const format = (v: number | null | undefined) => formatNumber(v, { decimals, currency });
+  const format = (v: number | null | undefined) => formatNumber(v, { decimals, currency, compact });
   return (
     <div>
       <div className="flex flex-wrap items-baseline gap-x-5 pb-1 font-mono text-[11px] text-muted">
-        <span>{hover?.date ?? "Hover the chart for a month's values"}</span>
+        <span>{hover?.date ?? (daily ? "Hover the chart for a day's value" : "Hover the chart for a month's values")}</span>
         {lines.map((line, i) => (
           <span key={line.label} className="flex items-baseline gap-1.5">
             <span aria-hidden="true" className="inline-block w-4 border-t-2" style={{ borderColor: line.color, borderTopStyle: line.dashed ? "dashed" : "solid" }} />
@@ -119,8 +123,10 @@ export function LineChart({ lines, currency, decimals = 0, height = 260, label }
   );
 }
 
-function timeText(time: Time): string {
-  if (typeof time === "string") return time.slice(0, 7);
-  if (typeof time === "number") return new Date(time * 1000).toISOString().slice(0, 7);
-  return `${time.year}-${String(time.month).padStart(2, "0")}`;
+function timeText(time: Time, daily: boolean): string {
+  const length = daily ? 10 : 7;
+  if (typeof time === "string") return time.slice(0, length);
+  if (typeof time === "number") return new Date(time * 1000).toISOString().slice(0, length);
+  const month = `${time.year}-${String(time.month).padStart(2, "0")}`;
+  return daily ? `${month}-${String(time.day).padStart(2, "0")}` : month;
 }

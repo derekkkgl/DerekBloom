@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CryptoCoin } from "./api";
-import { coinView } from "./crypto";
+import { coinView, money, pesoNote } from "./crypto";
 
 const BTC: CryptoCoin = {
   id: "bitcoin", ticker: "BTC", symbol: "BTC", name: "Bitcoin", rank: 1,
@@ -24,5 +24,22 @@ describe("coinView", () => {
     const noPeso = coinView({ ...BTC, price_php: null }, "PHP");
     expect(noPeso.currency).toBe("USD");
     expect(noPeso.change24h).toBe(-1);
+  });
+});
+
+describe("money", () => {
+  it("uses the peso figure only when pesos are wanted and present", () => {
+    expect(money(10, 600, "PHP")).toEqual({ value: 600, currency: "PHP" });
+    expect(money(10, 600, "USD")).toEqual({ value: 10, currency: "USD" });
+    expect(money(10, null, "PHP")).toEqual({ value: 10, currency: "USD" });
+    expect(money(undefined, undefined, "PHP")).toEqual({ value: null, currency: "USD" });
+  });
+});
+
+describe("pesoNote", () => {
+  it("names the rate, says when it is missing, and is empty in dollars", () => {
+    expect(pesoNote("PHP", 63.287)).toBe("Peso totals use Yahoo's USD/PHP of 63.29.");
+    expect(pesoNote("PHP", null)).toMatch(/stay in dollars/);
+    expect(pesoNote("USD", 63.2)).toBe("");
   });
 });

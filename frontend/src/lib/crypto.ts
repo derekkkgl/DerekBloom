@@ -39,3 +39,21 @@ export function coinView(coin: CryptoCoin, wanted: DisplayCurrency): CoinView {
     sparkline: coin.sparkline_7d,
   };
 }
+
+export type Money = { value: number | null; currency: DisplayCurrency };
+
+/**
+ * A USD figure with an optional peso twin: pesos when asked for and present, else dollars.
+ * The returned currency says which one was used, so a missing rate never mislabels a number.
+ */
+export function money(usd: number | null | undefined, php: number | null | undefined, wanted: DisplayCurrency): Money {
+  if (wanted === "PHP" && typeof php === "number") return { value: php, currency: "PHP" };
+  return { value: usd ?? null, currency: "USD" };
+}
+
+/** The note under a screen whose peso totals use Yahoo's USD/PHP. Empty when showing dollars. */
+export function pesoNote(wanted: DisplayCurrency, rate: number | null | undefined): string {
+  if (wanted !== "PHP") return "";
+  if (typeof rate !== "number") return "Yahoo's USD/PHP isn't available right now, so totals stay in dollars.";
+  return `Peso totals use Yahoo's USD/PHP of ${rate.toFixed(2)}.`;
+}

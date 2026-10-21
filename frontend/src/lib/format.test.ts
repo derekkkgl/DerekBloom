@@ -39,7 +39,10 @@ describe("autoDecimals", () => {
   it("gives small coins more decimals", () => {
     expect(autoDecimals(108000)).toBe(2);
     expect(autoDecimals(0.5321)).toBe(4);
-    expect(autoDecimals(0.00001234)).toBe(6);
+    expect(autoDecimals(0.001234)).toBe(6);
+    expect(autoDecimals(0.00001234)).toBe(7);
+    expect(formatNumber(0.0000003012, { currency: "USD" })).toBe("$0.000000301");
+    expect(autoDecimals(1e-20)).toBe(12);
     expect(autoDecimals(0)).toBe(2);
   });
 });

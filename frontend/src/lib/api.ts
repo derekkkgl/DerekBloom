@@ -92,6 +92,7 @@ export type CryptoGlobal = {
   market_cap_php: number | null;
   volume_24h_usd: number | null;
   volume_24h_php: number | null;
+  volume_unreliable: boolean; // CoinGecko's total was larger than the whole market cap, so it was dropped
   market_cap_change_24h_pct: number | null;
   btc_dominance_pct: number | null;
   eth_dominance_pct: number | null;
@@ -181,6 +182,94 @@ export type CryptoCoin = {
 };
 
 export type CryptoMarkets = { coins: CryptoCoin[] };
+
+// Phase 5a: XGLB, XMOV, XSEC, DEFI. `usd_php` is Yahoo's rate for totals whose source has no
+// peso version (null when Yahoo is down, and then every *_php field is null too).
+
+export type FearGreedPoint = { date: string; value: number; label: string | null };
+
+export type FearGreed = {
+  value: number;
+  label: string | null;
+  date: string;
+  yesterday: number | null;
+  week_ago: number | null;
+  month_ago: number | null;
+  history: FearGreedPoint[];
+};
+
+export type Stablecoins = {
+  supply_usd: number;
+  supply_php: number | null;
+  date: string;
+  change_7d_pct: number | null;
+  change_30d_pct: number | null;
+  usd_php: number | null;
+};
+
+export type MoverCoin = Omit<CryptoCoin, "sparkline_7d" | "sparkline_7d_php">;
+
+export type CryptoMovers = { window: "24h" | "7d"; universe: number; gainers: MoverCoin[]; losers: MoverCoin[] };
+
+export type TrendingCoin = {
+  id: string;
+  ticker: string | null;
+  symbol: string | null;
+  name: string | null;
+  rank: number | null;
+  price_usd: number | null;
+  price_php: number | null;
+  change_24h_pct: number | null;
+  change_24h_pct_php: number | null;
+  market_cap_usd: number | null;
+  market_cap_php: number | null;
+};
+
+export type Trending = { coins: TrendingCoin[]; usd_php: number | null };
+
+export type CryptoCategory = {
+  rank: number;
+  id: string;
+  name: string | null;
+  sector: string | null; // the heat-map label, or null for categories only in the table
+  market_cap_usd: number | null;
+  market_cap_php: number | null;
+  change_24h_pct: number | null;
+  volume_24h_usd: number | null;
+  volume_24h_php: number | null;
+  top_coins: string | null;
+};
+
+export type CryptoSectors = { categories: CryptoCategory[]; usd_php: number | null };
+
+export type DefiTvl = {
+  tvl_usd: number;
+  tvl_php: number | null;
+  date: string;
+  change_1d_pct: number | null;
+  change_7d_pct: number | null;
+  change_30d_pct: number | null;
+  history: { date: string; value: number }[];
+  usd_php: number | null;
+};
+
+export type DefiChain = { rank: number; name: string | null; token: string | null; tvl_usd: number | null; tvl_php: number | null; share_pct: number | null };
+
+export type DefiProtocol = {
+  rank: number;
+  name: string | null;
+  symbol: string | null;
+  category: string | null;
+  chain: string | null;
+  chain_count: number;
+  tvl_usd: number | null;
+  tvl_php: number | null;
+  change_1d_pct: number | null;
+  change_7d_pct: number | null;
+};
+
+export type DefiChains = { chains: DefiChain[]; usd_php: number | null };
+export type DefiProtocols = { protocols: DefiProtocol[]; usd_php: number | null };
 
 export type DesSecurity = {
   kind: "security";
