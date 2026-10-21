@@ -110,6 +110,12 @@ CSV import was planned as Phase 4b. Derek moved it to Phase 9; he enters trades 
 
 **Phase 5: Crypto depth and global breadth**
 `XGLB`, `XMOV`, `XSEC`, `DEFI`, `WMAP`, `MOST`, `MOV`, `IMAP`, `FX`, `CMDTY`, `GC`, `RATES`, `ECO`. FRED key in `.env`.
+Split into three parts, one session each (Derek's choice):
+- **5a crypto:** `XGLB`, `XMOV`, `XSEC`, `DEFI` (CoinGecko, alternative.me, DefiLlama; no key). Builds the shared heat map used later by `IMAP` and `WMAP`.
+- **5b world markets:** `MOST`, `MOV`, `FX`, `CMDTY`, `IMAP`, `WMAP` (Yahoo).
+- **5c rates and economy:** `GC`, `RATES`, `ECO` (FRED, needs the free key in `.env`).
+
+Design choices: `WMAP` is a tile map (one same-size square per market, placed roughly where it sits on the globe), not country outlines. Heat maps use three tints of the up green and down red by size of move (under 1%, 1 to 3%, over 3%), with ink text and a +/− sign. The Markets page groups its screens under ruled sub-sections: Crypto, World markets, Rates and economy.
 
 **Phase 6: Security depth**
 `GIP`, `HP`, `CN`, `FA`, `ERN`, `EE`, `DVD`, `HDS`, `OMON`, `RV`, `COMP`, `BETA`, `CORR`, `XCORR`, PORT risk tab, and the rest of `GP` (EMA, Bollinger Bands, RSI, MACD, compare overlay).
