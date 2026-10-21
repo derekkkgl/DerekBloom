@@ -357,7 +357,7 @@ function EntryRow(props: {
             <div className="flex gap-1">
               <TextInput {...common} inputMode="decimal" aria-label="Fee" placeholder="fee" value={form.fee} onChange={(e) => set({ fee: e.target.value })} className="text-right" />
               {fields.feeCurrency ? (
-                <TextInput {...common} aria-label="Fee currency" placeholder={form.price_currency} value={form.fee_currency} onChange={(e) => set({ fee_currency: e.target.value.toUpperCase() })} className="w-12 shrink-0 uppercase" />
+                <TextInput {...common} aria-label="Fee currency" placeholder={form.price_currency} value={form.fee_currency} onChange={(e) => set({ fee_currency: e.target.value.toUpperCase() })} width="w-12" className="shrink-0 uppercase" />
               ) : (
                 <span className="self-end font-mono text-[11px] text-muted">{form.asset || "coin"}</span>
               )}
@@ -423,7 +423,8 @@ function CurrencySelect(props: {
       aria-label={props.label ?? "Price currency"}
       value={props.value}
       onChange={(e) => props.onChange(e.target.value as TxForm["price_currency"])}
-      className="w-14 shrink-0 font-mono"
+      width="w-16"
+      className="shrink-0 font-mono"
     >
       {CASH_CURRENCIES.map((c) => (
         <option key={c} value={c}>

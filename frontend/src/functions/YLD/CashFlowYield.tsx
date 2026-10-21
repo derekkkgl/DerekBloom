@@ -133,7 +133,7 @@ function YieldLine({ row, save }: { row: YieldRow; save: (path: string, method: 
               aria-label={`${row.asset} income kind`}
               value={row.source ?? ""}
               onChange={(e) => choose(e.target.value)}
-              className="w-40"
+              width="w-40"
             >
               <option value="">None</option>
               <option value="staking">Staking, your rate</option>
