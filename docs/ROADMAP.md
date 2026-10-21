@@ -112,7 +112,7 @@ CSV import was planned as Phase 4b. Derek moved it to Phase 9; he enters trades 
 `XGLB`, `XMOV`, `XSEC`, `DEFI`, `WMAP`, `MOST`, `MOV`, `IMAP`, `FX`, `CMDTY`, `GC`, `RATES`, `ECO`. FRED key in `.env`.
 Split into three parts, one session each (Derek's choice):
 - **5a crypto (done):** `XGLB`, `XMOV`, `XSEC`, `DEFI` (CoinGecko, alternative.me, DefiLlama; no key). Builds the shared heat map used later by `IMAP` and `WMAP`.
-- **5b world markets:** `MOST`, `MOV`, `FX`, `CMDTY`, `IMAP`, `WMAP` (Yahoo).
+- **5b world markets (done):** `MOST`, `MOV`, `FX`, `CMDTY`, `IMAP`, `WMAP` (Yahoo). `WMAP` shows WEI's markets plus 12 more (Derek's choice); `IMAP` is three maps (US sectors, world ETFs, the Home list), each sized against its own group (Derek's choice).
 - **5c rates and economy:** `GC`, `RATES`, `ECO` (FRED, needs the free key in `.env`).
 
 Design choices: `WMAP` is a tile map (one same-size square per market, placed roughly where it sits on the globe), not country outlines. Heat maps use three tints of the up green and down red by size of move (under 1%, 1 to 3%, over 3%), with ink text and a +/− sign. The Markets page groups its screens under ruled sub-sections: Crypto, World markets, Rates and economy.

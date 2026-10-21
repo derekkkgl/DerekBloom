@@ -2,7 +2,7 @@
 
 A local, self-hosted financial terminal inspired by the Bloomberg Terminal, built on free data. Focus: crypto and international markets, with PHP as the home currency.
 
-**Status:** Phase 5a done. On top of v1's live market screens (front page, world indices, crypto board, price charts, descriptions, news, function directory) and your own portfolio (Phase 4: transactions, holdings and P&L in pesos, cash-flow yield, months to your income goal), the Markets section now goes deep on crypto: the whole market and the Fear & Greed Index, the day's biggest movers, a sector heat map, and DeFi. World markets (5b) and rates and the economy (5c) come next; CSV import from exchanges comes in Phase 9. See [docs/ROADMAP.md](docs/ROADMAP.md) for the full plan.
+**Status:** Phase 5b done. On top of v1's live market screens (front page, world indices, crypto board, price charts, descriptions, news, function directory) and your own portfolio (Phase 4: transactions, holdings and P&L in pesos, cash-flow yield, months to your income goal), the Markets section goes deep on crypto (5a: the whole market and the Fear & Greed Index, movers, a sector heat map, DeFi) and now on world markets (5b: a world tile map, US most active stocks and movers, an ETF heat map, currencies against the dollar and the peso, and commodities). Rates and the economy (5c) come next; CSV import from exchanges comes in Phase 9. See [docs/ROADMAP.md](docs/ROADMAP.md) for the full plan.
 
 ![The Daily Tape front page](docs/screenshot.png)
 
@@ -24,6 +24,12 @@ The paper is cream, ink, and serif headlines. Every screen opens from **Look up*
 | --- | --- | --- |
 | Home | Front page | US stocks and ETFs with 1-month sparklines, your coins, eight world indices with open/closed, and the latest headlines |
 | `WEI` | World equity indices | 16 indices by region plus BTC, ETH, USD/PHP, the dollar, gold, oil, and the US 10Y, with day and YTD change |
+| `WMAP` | World market map | 24 national stock indices as squares placed roughly by geography, tinted by the day's move, with a table by region |
+| `MOST` | Most active US stocks | Up to 25 US stocks by shares traded today, with volume against the 3-month average |
+| `MOV` | Top gainers and losers | US stocks up over 3% and down over 2.5% today (companies worth $2B or more), side by side |
+| `IMAP` | ETF heat map | Three maps: US sector ETFs sized by S&P 500 weight, world ETFs by fund assets, and your Home list |
+| `FX` | World currencies | Eight majors and the dollar per US$1 and in pesos, the dollar index, and a 10 × 10 cross-rate table |
+| `CMDTY` | Commodities | Gold, silver, WTI crude, natural gas, copper, and wheat futures with day and YTD change |
 | `CRYPTO` | Crypto board | Top 100 coins: price, 1h/24h/7d change, volume, market cap, 7-day sparkline |
 | `XGLB` | Global crypto overview | Total market cap and volume, Bitcoin / Ether / stablecoin shares, stablecoin supply, Fear & Greed Index with a year of history |
 | `XMOV` | Crypto movers | Top 10 gainers and losers among the 200 biggest coins (24 hours or 7 days), and CoinGecko's trending coins |
@@ -40,7 +46,7 @@ The paper is cream, ink, and serif headlines. Every screen opens from **Look up*
 
 A ticker alone (`NVDA`) opens its description, and Look up suggests tickers as you type (your aliases and holdings first, then Yahoo's search). Up arrow in an empty Look up box recalls recent commands. International listings use Yahoo suffixes (`7203.T GP`, `0700.HK DES`), indices use `^` (`^N225 GP`).
 
-**USD / PHP toggle** (top right): switches the ticker tape's USD prices, the crypto screens, coin descriptions, Home's crypto column, and price charts to pesos. Coin prices in pesos come from CoinGecko itself; big dollar totals that have no peso version at their source (sector market caps, DeFi value locked, stablecoin supply, trending prices) use Yahoo's USD/PHP, and the screen names the rate. Peso changes include the peso's own move. Charts convert every candle at the USD/PHP rate of its own day (or 5 minutes), never today's rate, so a peso chart shows what the asset was really worth in pesos at the time. Indices, exchange rates, and non-USD listings (like `7203.T`) stay in their own currency, labeled.
+**USD / PHP toggle** (top right): switches the ticker tape's USD prices, the crypto screens, coin descriptions, Home's crypto column, and price charts to pesos. Coin prices in pesos come from CoinGecko itself; big dollar totals that have no peso version at their source (sector market caps, DeFi value locked, stablecoin supply, trending prices, US stock prices on MOST and MOV, commodity prices, ETF sizes on IMAP) use Yahoo's USD/PHP, and the screen names the rate. Peso changes include the peso's own move. Charts convert every candle at the USD/PHP rate of its own day (or 5 minutes), never today's rate, so a peso chart shows what the asset was really worth in pesos at the time. Indices, exchange rates, and non-USD listings (like `7203.T`) stay in their own currency, labeled. FX always shows both dollars and pesos, and the heat maps' % moves stay in each market's own currency.
 
 ## Your portfolio
 
@@ -180,9 +186,9 @@ Smoke test against the running backend with real data (every endpoint, plus AAPL
 
 ```
 backend/app/main.py        FastAPI app, CORS, error envelope
-backend/app/core/          cache, clean (NaN -> null), tickers + aliases, WEI rows + market hours
+backend/app/core/          cache, clean (NaN -> null), tickers + aliases, WEI rows + market hours, world.py (FX, CMDTY, IMAP, WMAP lists)
 backend/app/db/            SQLite connection, .sql query loader, migrations runner
-backend/app/services/      yahoo.py, coingecko.py, rss.py (fetchers + pure shapers)
+backend/app/services/      yahoo.py, coingecko.py, rss.py (fetchers + pure shapers); world.py shapes the 5b screens
 backend/app/services/costbasis.py  the cost engine: average cost, fees, rewards, transfers
 backend/app/services/portfolio.py  PORT and YLD numbers; goal.py: GOAL math
 backend/sql/migrations/    schema, one numbered file per change
