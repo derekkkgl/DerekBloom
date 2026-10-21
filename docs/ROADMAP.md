@@ -111,7 +111,7 @@ CSV import was planned as Phase 4b. Derek moved it to Phase 9; he enters trades 
 **Phase 5: Crypto depth and global breadth**
 `XGLB`, `XMOV`, `XSEC`, `DEFI`, `WMAP`, `MOST`, `MOV`, `IMAP`, `FX`, `CMDTY`, `GC`, `RATES`, `ECO`. FRED key in `.env`.
 Split into three parts, one session each (Derek's choice):
-- **5a crypto:** `XGLB`, `XMOV`, `XSEC`, `DEFI` (CoinGecko, alternative.me, DefiLlama; no key). Builds the shared heat map used later by `IMAP` and `WMAP`.
+- **5a crypto (done):** `XGLB`, `XMOV`, `XSEC`, `DEFI` (CoinGecko, alternative.me, DefiLlama; no key). Builds the shared heat map used later by `IMAP` and `WMAP`.
 - **5b world markets:** `MOST`, `MOV`, `FX`, `CMDTY`, `IMAP`, `WMAP` (Yahoo).
 - **5c rates and economy:** `GC`, `RATES`, `ECO` (FRED, needs the free key in `.env`).
 

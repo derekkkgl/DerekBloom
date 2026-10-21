@@ -4,7 +4,7 @@ Free sources only. Each entry says what it covers, its limits, how reliable it h
 
 ## Yahoo Finance (via `yfinance` 1.7.0)
 
-- **Used by:** `/api/quote`, `/api/quotes`, `/api/chart`, `/api/wei`, `/api/des` (stocks and ETFs), `/api/portfolio`, `/api/yield`, `/api/goal`, and asset lookups when you add a transaction
+- **Used by:** `/api/quote`, `/api/quotes`, `/api/chart`, `/api/wei`, `/api/des` (stocks and ETFs), `/api/portfolio`, `/api/yield`, `/api/goal`, asset lookups when you add a transaction, and the USD/PHP rate (`PHP=X`, cached 5 minutes) for Phase 5a's dollar totals in pesos
 - **Coverage:** US and international stocks and ETFs (Yahoo suffixes: `7203.T`, `0700.HK`, `ASML.AS`, `D05.SI`), global indices (`^GSPC`, `^N225` ...), FX (`PHP=X` = USD/PHP), futures (`GC=F`, `CL=F`), the dollar index (`DX-Y.NYB`), US 10Y yield (`^TNX`), and crypto price history (`BTC-USD`).
 - **Limits:** unofficial, no API key, and Yahoo rate-limits heavy use (`YFRateLimitError` → we return 502 or the stale copy). Intraday history only goes back so far: 1m bars about 7 days, 5m–30m about 60 days, 1h about 730 days. Some international index quotes are delayed.
 - **Quirks found:**
@@ -24,13 +24,16 @@ Free sources only. Each entry says what it covers, its limits, how reliable it h
 
 ## CoinGecko public API (no key)
 
-- **Used by:** `/api/crypto/markets`, `/api/crypto/global`, `/api/des` (coins)
-- **Endpoints:** `GET https://api.coingecko.com/api/v3/coins/markets`, called twice (`vs_currency=usd` and `vs_currency=php`, both with a sparkline) and joined by coin id. The PHP call supplies peso prices, peso % changes, peso volume, and the peso sparkline. `GET /global` for total market cap and volume (in every currency, including PHP) and dominance by coin, cached 5 minutes. `GET /coins/{id}?localization=false&tickers=false&community_data=false&developer_data=false` for a coin's profile (description, categories, links, circulating/total/max supply, fully diluted value, all-time high and its date, each in USD and PHP), cached 6 hours.
+- **Used by:** `/api/crypto/markets`, `/api/crypto/global`, `/api/crypto/movers`, `/api/crypto/trending`, `/api/crypto/sectors`, `/api/des` (coins)
+- **Endpoints:** `GET https://api.coingecko.com/api/v3/coins/markets?per_page=200`, called twice (`vs_currency=usd` and `vs_currency=php`, both with a sparkline) and joined by coin id. This one download (cached 2 minutes) feeds CRYPTO (the first 100), XMOV (movers among all 200), Home, coin DES, and the coin symbols in XSEC. The PHP call supplies peso prices, peso % changes, peso volume, and the peso sparkline. `GET /global` for total market cap and volume (in every currency, including PHP) and dominance by coin, cached 5 minutes. `GET /coins/{id}?localization=false&tickers=false&community_data=false&developer_data=false` for a coin's profile (description, categories, links, circulating/total/max supply, fully diluted value, all-time high and its date, each in USD and PHP), cached 6 hours.
 - **Coin DES:** the profile is cached 6 hours; the live price comes from the cached `/coins/markets` list (2 minutes), so opening a coin's DES costs at most one extra call every 6 hours. A coin outside the top 100 shows the profile's own price, which can be up to 6 hours old (the panel's time says so). The description's first paragraph is shown as plain text, cut at about 800 characters.
-- **Coverage:** top 100 coins by market cap. Price, 1h/24h/7d change, volume, market cap, 7-day hourly sparkline (168 points). Prices in PHP come directly from CoinGecko.
-- **Limits:** the keyless tier is tightly rate-limited and throttles with HTTP 429. We cache 2 minutes and serve the last good copy on failure. A free Demo key (higher limit) can be added later if throttling becomes a problem.
+- **More endpoints (Phase 5a):** `GET /search/trending` (the 15 most-searched coins in 24 hours; price in USD only, market cap as display text like `"$20,307,092"`, 24h change in every currency), cached 10 minutes. `GET /coins/categories` (about 775 categories with market cap, 24h market-cap change, 24h volume, and the ids of the 3 biggest coins), cached 10 minutes. Categories overlap and include investor portfolios ("Made in USA", "World Liberty Financial Portfolio"), so XSEC's heat map uses a fixed list of 23 real sectors (`SECTORS` in `app/services/coingecko.py`); all 23 ids existed on 2026-10-21. A category's only change figure is 24 hours, in dollars.
+- **Coverage:** top 200 coins by market cap (the CRYPTO board shows 100). Price, 1h/24h/7d change, volume, market cap, 7-day hourly sparkline (168 points). Prices in PHP come directly from CoinGecko.
+- **Limits:** the keyless tier is tightly rate-limited and throttles with HTTP 429. We cache 2 minutes and serve the last good copy on failure. A free Demo key (higher limit) can be added later if throttling becomes a problem. In steady use the app makes about 1.5 calls a minute. Bursts can still hit 429: on 2026-10-21, running the smoke test right after a restart (empty cache, about 9 calls in a minute) made the last call (`/api/des/BTC`) fail with 429; it worked again a minute later.
+- **Bad data seen:** on 2026-10-21 `/global` reported 24h volume of $2.95 × 10¹⁷, about 100,000 times the whole market cap (a coin with absurd reported volume inside the total). Any total volume above the total market cap is now dropped (`volume_unreliable: true`) and XGLB says why.
 - **Note:** CoinGecko's PHP prices use its own FX rate. On 2026-10-21 it implied USD/PHP 63.46 vs Yahoo's 63.38 (about 0.13% apart).
-- **Reliability:** both market calls returned 100 coins; `/coins/ethereum` returned every DES field (ETH has no max supply, which shows as —).
+- **Reliability:** both market calls returned 200 coins; `/coins/ethereum` returned every DES field (ETH has no max supply, which shows as —). Trending returned 15 coins, categories 774.
+- **robots.txt:** `api.coingecko.com/robots.txt` disallows `/api/v3` for crawlers. We are not crawling: these are CoinGecko's documented public API calls, made at its published keyless rate, as an API client.
 - **Last checked:** 2026-10-21
 
 ## RSS news feeds (`requests` + `feedparser`)
@@ -51,6 +54,28 @@ Free sources only. Each entry says what it covers, its limits, how reliable it h
 - **Reliability:** all five feeds returned 10–38 items.
 - **Last checked:** 2026-10-21
 
+## alternative.me Crypto Fear & Greed Index (no key)
+
+- **Used by:** `/api/crypto/fear-greed` (XGLB)
+- **Endpoint:** `GET https://api.alternative.me/fng/?limit=365&format=json`. Returns newest first: `value` ("63", a string), `value_classification` ("Greed"), `timestamp` (Unix seconds, as a string). We sort oldest first for the chart.
+- **Coverage:** one reading per day, 0 (extreme fear) to 100 (extreme greed), built from Bitcoin's volatility, volume and momentum, social media, dominance, and search trends. History goes back to February 2018.
+- **Terms:** free to use; alternative.me asks that the data be credited next to where it is shown. XGLB's panel names the source and links to the index page.
+- **Limits and reliability:** slow and sometimes down. On 2026-10-21 one request answered in 8 s, one in 21 s, and two timed out (25 s and 30 s). We wait up to 30 s and cache for an hour (the index changes once a day), so after the first good answer a slow day shows the last copy marked Stale.
+- **Last checked:** 2026-10-21
+
+## DefiLlama open API (no key)
+
+- **Used by:** `/api/crypto/stablecoins` (XGLB), `/api/defi/tvl`, `/api/defi/chains`, `/api/defi/protocols` (DEFI)
+- **Endpoints:**
+  - `GET https://api.llama.fi/v2/historicalChainTvl`: total DeFi value locked per day in USD (about 3,300 days; the earliest are zero, before DeFi existed, and are skipped).
+  - `GET https://api.llama.fi/v2/chains`: value locked per chain now (no change figures, so we show each chain's share instead).
+  - `GET https://api.llama.fi/protocols`: every protocol (about 8,800) with value locked and 1h/1d/7d change. It is about **9 MB**, so it is fetched at most once an hour and only the top 25 are kept. Centralized exchanges (category `CEX`, e.g. "Binance CEX" at $174B) report reserves here but aren't DeFi, so they're left out. Bridges and liquid staking stay in.
+  - `GET https://stablecoins.llama.fi/stablecoincharts/all`: daily stablecoin supply by peg (USD, EUR, gold-backed `peggedVAR` ...). We add every peg's `totalCirculatingUSD` (each valued in dollars): $305.16B on 2026-10-21.
+- **Limits:** no key and no published hard limit; we cache every call for an hour and send an honest User-Agent. All values are in USD; pesos use Yahoo's USD/PHP (the same rate PORT uses), and the TVL chart stays in dollars because converting past days at today's rate would mislead.
+- **robots.txt:** none on `api.llama.fi`.
+- **Reliability:** every endpoint answered in under 1.5 s.
+- **Last checked:** 2026-10-21
+
 ## Planned (later phases)
 
-alternative.me Fear & Greed (Phase 5), DefiLlama (Phase 5), FRED (Phase 5, needs a free key in `.env`), Philippine sources (Phase 9, researched then).
+FRED (Phase 5c, needs a free key in `.env`), Philippine sources (Phase 9, researched then).

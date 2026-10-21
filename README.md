@@ -2,7 +2,7 @@
 
 A local, self-hosted financial terminal inspired by the Bloomberg Terminal, built on free data. Focus: crypto and international markets, with PHP as the home currency.
 
-**Status:** Phase 4 done. On top of v1's live market screens (front page, world indices, crypto board, price charts, descriptions, news, function directory), the paper now holds your own portfolio: transactions you enter by hand, holdings with value and P&L in pesos, cash-flow yield, and months to your income goal. CSV import from exchanges comes later, in Phase 9. See [docs/ROADMAP.md](docs/ROADMAP.md) for the full plan.
+**Status:** Phase 5a done. On top of v1's live market screens (front page, world indices, crypto board, price charts, descriptions, news, function directory) and your own portfolio (Phase 4: transactions, holdings and P&L in pesos, cash-flow yield, months to your income goal), the Markets section now goes deep on crypto: the whole market and the Fear & Greed Index, the day's biggest movers, a sector heat map, and DeFi. World markets (5b) and rates and the economy (5c) come next; CSV import from exchanges comes in Phase 9. See [docs/ROADMAP.md](docs/ROADMAP.md) for the full plan.
 
 ![The Daily Tape front page](docs/screenshot.png)
 
@@ -25,6 +25,10 @@ The paper is cream, ink, and serif headlines. Every screen opens from **Look up*
 | Home | Front page | US stocks and ETFs with 1-month sparklines, your coins, eight world indices with open/closed, and the latest headlines |
 | `WEI` | World equity indices | 16 indices by region plus BTC, ETH, USD/PHP, the dollar, gold, oil, and the US 10Y, with day and YTD change |
 | `CRYPTO` | Crypto board | Top 100 coins: price, 1h/24h/7d change, volume, market cap, 7-day sparkline |
+| `XGLB` | Global crypto overview | Total market cap and volume, Bitcoin / Ether / stablecoin shares, stablecoin supply, Fear & Greed Index with a year of history |
+| `XMOV` | Crypto movers | Top 10 gainers and losers among the 200 biggest coins (24 hours or 7 days), and CoinGecko's trending coins |
+| `XSEC` | Crypto sectors | Heat map of sectors (Layer 1, DeFi, AI, memes, RWA ...) tinted by 24-hour change, and the top 100 categories |
+| `DEFI` | DeFi monitor | Total value locked with its 1-year history, the top 20 chains, and the top 25 DeFi apps |
 | `NVDA GP`, `BTC GP` | Price chart | Candles, volume, SMA 20/50/200, ranges 1D to MAX, hover legend with OHLC and SMA values |
 | `NVDA DES`, `VOO DES`, `ETH DES` | Description | Stocks: key stats, valuation, profile. ETFs: fund facts. Coins: supply, all-time high and distance from it, links |
 | `N` | News wire | Markets and crypto headlines with All / Markets / Crypto tabs |
@@ -36,7 +40,7 @@ The paper is cream, ink, and serif headlines. Every screen opens from **Look up*
 
 A ticker alone (`NVDA`) opens its description, and Look up suggests tickers as you type (your aliases and holdings first, then Yahoo's search). Up arrow in an empty Look up box recalls recent commands. International listings use Yahoo suffixes (`7203.T GP`, `0700.HK DES`), indices use `^` (`^N225 GP`).
 
-**USD / PHP toggle** (top right): switches the ticker tape's USD prices, the crypto board, coin descriptions, Home's crypto column, and price charts to pesos. Peso changes include the peso's own move. Charts convert every candle at the USD/PHP rate of its own day (or 5 minutes), never today's rate, so a peso chart shows what the asset was really worth in pesos at the time. Indices, exchange rates, and non-USD listings (like `7203.T`) stay in their own currency, labeled.
+**USD / PHP toggle** (top right): switches the ticker tape's USD prices, the crypto screens, coin descriptions, Home's crypto column, and price charts to pesos. Coin prices in pesos come from CoinGecko itself; big dollar totals that have no peso version at their source (sector market caps, DeFi value locked, stablecoin supply, trending prices) use Yahoo's USD/PHP, and the screen names the rate. Peso changes include the peso's own move. Charts convert every candle at the USD/PHP rate of its own day (or 5 minutes), never today's rate, so a peso chart shows what the asset was really worth in pesos at the time. Indices, exchange rates, and non-USD listings (like `7203.T`) stay in their own currency, labeled.
 
 ## Your portfolio
 
@@ -84,6 +88,14 @@ The portfolio holds USD-priced listings (US stocks and ETFs, and crypto) for now
 | `GET /api/news?category=all\|markets\|crypto&limit=50` | Deduplicated headlines, newest first | RSS | 5 min per feed |
 | `GET /api/crypto/markets` | Top 100 coins in USD and PHP, 1h/24h/7d change, sparklines | CoinGecko | 2 min |
 | `GET /api/crypto/global` | Total crypto market cap and volume (USD, PHP), BTC and ETH dominance | CoinGecko | 5 min |
+| `GET /api/crypto/fear-greed?days=365` | Fear & Greed today, yesterday, a week and a month ago, and daily history | alternative.me | 1 h |
+| `GET /api/crypto/stablecoins` | Total stablecoin supply in USD (and PHP), 7d and 30d change | DefiLlama | 1 h |
+| `GET /api/crypto/movers?window=24h\|7d&n=10` | Biggest gainers and losers among the top 200 | CoinGecko | 2 min (shares the markets download) |
+| `GET /api/crypto/trending` | Most-searched coins on CoinGecko in the last 24 hours | CoinGecko | 10 min |
+| `GET /api/crypto/sectors` | Top 100 categories by market cap with 24h change; `sector` marks the heat-map ones | CoinGecko | 10 min |
+| `GET /api/defi/tvl?days=365` | Total DeFi value locked, 1d/7d/30d change, daily history | DefiLlama | 1 h |
+| `GET /api/defi/chains` | Top 20 chains by value locked and their share | DefiLlama | 1 h |
+| `GET /api/defi/protocols` | Top 25 DeFi apps by value locked (exchanges left out), 1d and 7d change | DefiLlama | 1 h |
 | `GET /api/transactions` · `POST` · `PUT /{id}` · `DELETE /{id}` | Your transactions, newest first | local | none |
 | `GET /api/accounts` · `PUT /api/accounts/{id}/cash` | Accounts and the cash you typed in | local | none |
 | `GET /api/portfolio?currency=PHP\|USD` | Totals, holdings, allocation, cash | Yahoo + local | 60 s prices |
@@ -96,7 +108,7 @@ Tickers accept aliases: `BTC`, `ETH`, `XRP`, `SOL`, `BNB`, `ADA`, `DOGE`, `USDPH
 
 Every response looks like `{"data": ..., "meta": {"source", "as_of", "cached", "stale"}}`. Errors look like `{"error": {"code", "message"}}` with a real HTTP status (400, 404, 502). If a source fails, the last good copy is served with `stale: true`, and the screen says "Stale" in its header.
 
-**Excel:** add `?format=csv` to `/api/wei`, `/api/quotes`, `/api/chart/...`, `/api/news`, `/api/crypto/markets`, `/api/transactions`, `/api/accounts`, `/api/portfolio`, `/api/yield`, or `/api/goal`, then in Excel use Data → From Web and paste the URL. Each portfolio table also has a **CSV** link in its header.
+**Excel:** add `?format=csv` to `/api/wei`, `/api/quotes`, `/api/chart/...`, `/api/news`, `/api/crypto/markets`, `/api/crypto/movers`, `/api/crypto/sectors`, `/api/defi/chains`, `/api/defi/protocols`, `/api/transactions`, `/api/accounts`, `/api/portfolio`, `/api/yield`, or `/api/goal`, then in Excel use Data → From Web and paste the URL. Each portfolio table also has a **CSV** link in its header.
 
 **SQL:** the schema is in `backend/sql/migrations/` and every query the app runs is a `.sql` file in `backend/sql/queries/`. Open `backend/data/tape.db` in any SQLite tool (`sqlite3 backend/data/tape.db`) and run them yourself; `running_units.sql` uses a window function.
 
@@ -191,4 +203,4 @@ docs/data-sources.md       each source's coverage, limits, quirks
 
 ## Data sources
 
-Yahoo Finance (`yfinance`), CoinGecko public API, and public RSS feeds. Charts are drawn with TradingView [Lightweight Charts](https://www.tradingview.com/lightweight-charts/). Details and limits in [docs/data-sources.md](docs/data-sources.md). This is an information tool only: no trading or broker connections.
+Yahoo Finance (`yfinance`), CoinGecko public API, DefiLlama, the alternative.me Crypto Fear & Greed Index, and public RSS feeds. Charts are drawn with TradingView [Lightweight Charts](https://www.tradingview.com/lightweight-charts/). Details and limits in [docs/data-sources.md](docs/data-sources.md). This is an information tool only: no trading or broker connections.

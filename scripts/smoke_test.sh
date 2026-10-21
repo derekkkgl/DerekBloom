@@ -62,6 +62,22 @@ check 200 /api/crypto/markets
 check 200 "/api/crypto/markets?format=csv" csv
 check 200 /api/crypto/global
 
+# Phase 5a: XGLB, XMOV, XSEC, DEFI. alternative.me can take 10+ seconds when it's slow.
+check 200 /api/crypto/fear-greed
+check 200 "/api/crypto/fear-greed?days=30"
+check 200 /api/crypto/stablecoins
+check 200 /api/crypto/movers
+check 200 "/api/crypto/movers?window=7d&n=5"
+check 200 "/api/crypto/movers?format=csv" csv
+check 200 /api/crypto/trending
+check 200 /api/crypto/sectors
+check 200 "/api/crypto/sectors?format=csv" csv
+check 200 /api/defi/tvl
+check 200 /api/defi/chains
+check 200 "/api/defi/chains?format=csv" csv
+check 200 /api/defi/protocols
+check 200 "/api/defi/protocols?format=csv" csv
+
 for t in "${TICKERS[@]}"; do
   check 200 "/api/quote/$t"
   check 200 "/api/chart/$t"
@@ -102,6 +118,8 @@ check 400 "/api/chart/NVDA?currency=EUR"
 check 404 /api/des/ZZZZNOTREAL
 check 400 "/api/portfolio?currency=EUR"
 check 400 "/api/search?q=%20"
+check 400 "/api/crypto/movers?window=1y"
+check 400 "/api/crypto/fear-greed?days=0"
 
 echo
 echo "$PASS passed, $FAIL failed"
