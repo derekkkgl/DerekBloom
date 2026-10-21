@@ -271,6 +271,101 @@ export type DefiProtocol = {
 export type DefiChains = { chains: DefiChain[]; usd_php: number | null };
 export type DefiProtocols = { protocols: DefiProtocol[]; usd_php: number | null };
 
+export type ScreenName = "most-active" | "gainers" | "losers";
+
+/** One row of a Yahoo US screener. Prices are in dollars; the _php fields use Yahoo's USD/PHP. */
+export type ScreenRow = {
+  rank: number;
+  symbol: string;
+  name: string | null;
+  price_usd: number | null;
+  price_php: number | null;
+  change_usd: number | null;
+  change_php: number | null;
+  change_pct: number | null;
+  volume: number | null;
+  avg_volume_3m: number | null;
+  rel_volume: number | null;
+  market_cap_usd: number | null;
+  market_cap_php: number | null;
+  exchange: string | null;
+  currency: string | null;
+};
+
+export type Screen = { screen: ScreenName; total: number | null; rows: ScreenRow[]; usd_php: number | null };
+
+export type FxRow = {
+  code: string;
+  name: string;
+  per_usd: number | null;
+  /** Positive: the currency got stronger against the dollar. */
+  change_pct: number | null;
+  in_php: number | null;
+  /** Positive: one unit buys more pesos than the day before. */
+  in_php_change_pct: number | null;
+  last_date: string | null;
+  closes_php: number[];
+};
+
+/** `base` is the row's currency; every other key is a column code and how much of it one unit of `base` buys. */
+export type FxMatrixRow = { base: string } & { [code: string]: number | string | null };
+
+export type Fx = {
+  rows: FxRow[];
+  dxy: { last: number | null; change: number | null; change_pct: number | null; last_date: string | null; closes: number[] };
+  matrix: { codes: string[]; rows: FxMatrixRow[] };
+};
+
+export type CommodityRow = {
+  symbol: string;
+  name: string;
+  unit: string;
+  last_usd: number | null;
+  last_php: number | null;
+  change_usd: number | null;
+  change_php: number | null;
+  change_pct: number | null;
+  ytd_pct: number | null;
+  last_date: string | null;
+  closes: number[];
+};
+
+export type Commodities = { rows: CommodityRow[]; usd_php: number | null };
+
+export type ImapRow = {
+  symbol: string;
+  input?: string;
+  name: string | null;
+  /** Sectors only: the sector's share of the S&P 500, in percent. */
+  weight_pct?: number | null;
+  /** World ETFs and your list: fund assets or market cap. */
+  size_usd?: number | null;
+  size_php?: number | null;
+  change_pct: number | null;
+  last_date: string | null;
+};
+
+export type ImapGroup = { id: "sectors" | "world" | "home"; title: string; rows: ImapRow[] };
+
+export type Imap = { groups: ImapGroup[]; usd_php: number | null };
+
+export type WorldMarket = {
+  symbol: string;
+  index: string;
+  country: string;
+  code: string;
+  region: string;
+  col: number;
+  row: number;
+  last: number | null;
+  change: number | null;
+  change_pct: number | null;
+  ytd_pct: number | null;
+  last_date: string | null;
+};
+
+export type Wmap = { markets: WorldMarket[]; regions: string[] };
+
 export type DesSecurity = {
   kind: "security";
   input: string;

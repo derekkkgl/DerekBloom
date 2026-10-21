@@ -8,7 +8,6 @@ export const metadata: Metadata = { title: "Markets · The Daily Tape" };
 
 // Still to come in Phase 5, shown as plain text (never numbers) under their group.
 const COMING: Record<string, string> = {
-  world: "Most active, top gainers and losers, currencies, commodities, the ETF heat map, and the world map arrive in Phase 5b.",
   rates: "The US yield curve, Fed funds and Treasury rates, and the economic calendar arrive in Phase 5c.",
 };
 

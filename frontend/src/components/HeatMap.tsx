@@ -35,15 +35,22 @@ export function HeatMap({ tiles, label }: { tiles: HeatTile[]; label: string }) 
       {LAYOUTS.map((layout) => (
         <Tiles key={layout.className} tiles={tiles} label={label} layout={layout} />
       ))}
-      <figcaption className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted">
-        {HEAT_LEGEND.map(({ label: text, heat: h }) => (
-          <span key={text} className="flex items-center gap-1.5">
-            <span aria-hidden="true" className={`inline-block h-3 w-4 ${heatClass(h)}`} />
-            <span className="font-mono">{text}</span>
-          </span>
-        ))}
-      </figcaption>
+      <HeatLegend />
     </figure>
+  );
+}
+
+/** The six tints and what they mean, as a figure caption. Shared with the WMAP tile map. */
+export function HeatLegend() {
+  return (
+    <figcaption className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted">
+      {HEAT_LEGEND.map(({ label: text, heat: h }) => (
+        <span key={text} className="flex items-center gap-1.5">
+          <span aria-hidden="true" className={`inline-block h-3 w-4 ${heatClass(h)}`} />
+          <span className="font-mono">{text}</span>
+        </span>
+      ))}
+    </figcaption>
   );
 }
 

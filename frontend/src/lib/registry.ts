@@ -6,16 +6,22 @@
 // client component for the screen itself.
 
 import type { ComponentType } from "react";
+import { CMDTY } from "@/functions/CMDTY";
 import { CRYPTO } from "@/functions/CRYPTO";
 import { DEFI } from "@/functions/DEFI";
 import { DES } from "@/functions/DES";
+import { FX } from "@/functions/FX";
 import { GOAL } from "@/functions/GOAL";
 import { GP } from "@/functions/GP";
 import { HELP } from "@/functions/HELP";
+import { IMAP } from "@/functions/IMAP";
+import { MOST } from "@/functions/MOST";
+import { MOV } from "@/functions/MOV";
 import { N } from "@/functions/N";
 import { PORT } from "@/functions/PORT";
 import { TXN } from "@/functions/TXN";
 import { WEI } from "@/functions/WEI";
+import { WMAP } from "@/functions/WMAP";
 import { XGLB } from "@/functions/XGLB";
 import { XMOV } from "@/functions/XMOV";
 import { XSEC } from "@/functions/XSEC";
@@ -45,7 +51,9 @@ export type TerminalFunction = {
   component: ComponentType<FunctionScreenProps>;
 };
 
-export const FUNCTIONS: TerminalFunction[] = [WEI, CRYPTO, XGLB, XMOV, XSEC, DEFI, DES, GP, PORT, TXN, GOAL, YLD, N, HELP];
+export const FUNCTIONS: TerminalFunction[] = [
+  WEI, WMAP, MOST, MOV, IMAP, FX, CMDTY, CRYPTO, XGLB, XMOV, XSEC, DEFI, DES, GP, PORT, TXN, GOAL, YLD, N, HELP,
+];
 
 export function getFunction(mnemonic: string): TerminalFunction | undefined {
   const wanted = mnemonic.toUpperCase();
