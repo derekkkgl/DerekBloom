@@ -107,6 +107,16 @@ def fetch_download(symbols: list[str], start: date, actions: bool = False) -> pd
         )
 
 
+def fetch_screen(query: str, count: int) -> dict:
+    """One of Yahoo's predefined US screeners (most_actives, day_gainers, day_losers)."""
+    return yf.screen(query, count=count)
+
+
+def fetch_sector_weights(symbol: str) -> dict:
+    """A fund's sector weights as fractions, e.g. {"technology": 0.40, ...}."""
+    return yf.Ticker(symbol).funds_data.sector_weightings
+
+
 def _call(fn: Callable[[], T]) -> T:
     """Run a fetcher and turn any library or network failure into a 502."""
     try:
