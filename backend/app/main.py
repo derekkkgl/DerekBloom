@@ -18,7 +18,7 @@ from app.routers.system import VERSION
 
 log = logging.getLogger("terminal")
 
-app = FastAPI(title="Swiss Glass Terminal API", version=VERSION)
+app = FastAPI(title="The Daily Tape API", version=VERSION)
 
 app.add_middleware(
     CORSMiddleware,

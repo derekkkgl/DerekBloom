@@ -11,7 +11,7 @@ import requests
 from app.core.errors import ApiError, UpstreamError
 
 BASE_URL = "https://api.coingecko.com/api/v3"
-USER_AGENT = "SwissGlassTerminal/0.1"
+USER_AGENT = "DailyTape/0.1"
 TIMEOUT_SECONDS = 15
 TOP_N = 100
 

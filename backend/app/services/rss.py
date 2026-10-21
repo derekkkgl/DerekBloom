@@ -18,7 +18,7 @@ from app.core.errors import ApiError, UpstreamError
 
 Category = Literal["markets", "crypto"]
 
-USER_AGENT = "SwissGlassTerminal/0.1 (personal RSS reader)"
+USER_AGENT = "DailyTape/0.1 (personal RSS reader)"
 TIMEOUT_SECONDS = 10
 SUMMARY_CHARS = 300
 

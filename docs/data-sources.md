@@ -39,7 +39,7 @@ Free sources only. Each entry says what it covers, its limits, how reliable it h
   | Decrypt | crypto | `https://decrypt.co/feed` |
 
 - **robots.txt:** checked for each host. CNBC's older feed host `search.cnbc.com` disallows all agents, so we use the same feed on `www.cnbc.com`, whose robots.txt has no general block. CoinDesk's general rules allow `/arc/outboundfeeds/`. Its `Disallow: /` lines target AI crawlers (GPTBot, ClaudeBot ...), not RSS readers.
-- **Limits:** each feed is fetched at most once per 5 minutes, with a 10 s timeout and an honest User-Agent (`SwissGlassTerminal/0.1 (personal RSS reader)`). Headlines and short summaries only. We link to the article and never copy full text.
+- **Limits:** each feed is fetched at most once per 5 minutes, with a 10 s timeout and an honest User-Agent (`DailyTape/0.1 (personal RSS reader)`). Headlines and short summaries only. We link to the article and never copy full text.
 - **Reliability:** all five feeds returned 10–38 items.
 - **Last checked:** 2026-10-21
 

@@ -1,4 +1,4 @@
-# Swiss Glass Terminal
+# The Daily Tape
 
 A local, self-hosted financial terminal inspired by the Bloomberg Terminal. It runs on Derek's Mac (backend on `localhost:8000`, frontend on `localhost:3000`) and is also a public portfolio project on GitHub, so the code must be clean, typed, tested, and documented.
 

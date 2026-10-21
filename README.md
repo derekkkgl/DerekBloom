@@ -1,4 +1,4 @@
-# Swiss Glass Terminal
+# The Daily Tape
 
 A local, self-hosted financial terminal inspired by the Bloomberg Terminal, built on free data. Focus: crypto and international markets, with PHP as the home currency.
 

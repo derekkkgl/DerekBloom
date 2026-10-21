@@ -1,4 +1,4 @@
-# Swiss Glass Terminal: Function Catalog and Roadmap
+# The Daily Tape: Function Catalog and Roadmap
 
 Bloomberg-style functions rebuilt on free data, plus personal functions for Derek. Focus: **crypto and international markets**. Philippine assets are a small, optional last phase. Each function has a mnemonic typed in the command palette. "Phase" says when it gets built.
 
@@ -8,9 +8,10 @@ Bloomberg-style functions rebuilt on free data, plus personal functions for Dere
 
 | Mnemonic | Function | Notes | Phase |
 | --- | --- | --- | --- |
-| `Cmd+K` / `/` | Command palette | Fuzzy search over mnemonics, tickers, recent commands | 2 |
+| Masthead | Sections and look-up | "The Daily Tape" masthead with section navigation (Home, Markets, Portfolio, Goal, News), the "Look up" command box, and the PHP/USD toggle. Every function lives in a section; mnemonics are keyboard shortcuts to the same screens | 2 |
+| `Cmd+K` / `/` | Command palette | Fuzzy search over mnemonics, tickers, recent commands. Opens from the "Look up" box | 2 |
 | `HELP` | Function directory | Generated from the registry, with shortcuts | 3 |
-| `TAPE` | Macro ticker tape | Scrolling strip across the top: S&P 500, Nasdaq, Nikkei, DAX, BTC, ETH, BTC dominance, DXY, US 10Y, gold, oil, USD/PHP | 2 |
+| `TAPE` | Macro ticker tape | Strip under the masthead: S&P 500, Nasdaq, Nikkei, DAX, BTC, ETH, BTC dominance, DXY, US 10Y, gold, oil, USD/PHP | 2 |
 | `LP` | Launchpad layouts | Save and restore panel grids by name (SQLite) | 7 |
 | Linked panels | Security groups | Each panel has a color tag (amber, cyan, magenta, none). Changing the ticker in one panel updates every panel with the same tag, like Bloomberg's linked windows | 7 |
 
@@ -94,8 +95,8 @@ Endpoints `/api/health`, `/api/wei`, `/api/quote/{ticker}`, `/api/chart/{ticker}
 Done when: tests pass, and the smoke test returns 200 for every endpoint with real data for AAPL, NVDA, VOO, 7203.T, BTC, ETH, and `PHP=X`.
 
 **Phase 2: Frontend shell**
-Next.js app, theme tokens, fonts, grid background, `Panel`, `Num`, formatters, ticker tape, command palette with function registry, four-zone workspace (tape on top, asset matrix left, chart center, news and macro wire right).
-Done when: the shell loads with the real ticker tape and the palette opens with Cmd+K and lists registered functions.
+Next.js app in the Morning Broadsheet style (see CLAUDE.md): theme tokens (paper, ink, rules, up/down), fonts (Source Serif 4, Inter, JetBrains Mono), masthead with section navigation (Home, Markets, Portfolio, Goal, News) and the "Look up" box, `TAPE` under the masthead, `Panel` (a ruled section with a header bar), `Num`, formatters, command palette with function registry. Each section is a route. Home is laid out as the paper's front page, with its columns wired to real data in Phase 3; until then a section says what is coming instead of showing numbers.
+Done when: the shell loads with the masthead and the real ticker tape, every section link opens its page, and the palette opens with Cmd+K (or from "Look up") and lists registered functions.
 
 **Phase 3: Core screens (MVP)**
 `WEI`, `CRYPTO`, `GP`, `DES` (stocks and coins), `N`, `HELP` wired to the API, `start.sh`, README with setup steps and a screenshot.
