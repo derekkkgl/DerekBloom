@@ -9,7 +9,7 @@ from datetime import date, timedelta
 import pandas as pd
 
 from app.core.errors import UpstreamError
-from app.core.world import COMMODITIES, DXY_SYMBOL, FX_PAIRS, MATRIX_CODES
+from app.core.world import COMMODITIES, DXY_SYMBOL, FX_PAIRS, MATRIX_CODES, SECTOR_SOURCE, WORLD_MARKETS, WORLD_REGIONS
 from app.services import yahoo
 from app.services.yahoo import QUOTES_HISTORY_DAYS, SPARK_POINTS, _call, _num, _quote_values, _wei_values
 
@@ -157,3 +157,62 @@ def shape_commodities(df: pd.DataFrame | None, year: int) -> dict:
             "closes": [float(v) for v in series.iloc[-SPARK_POINTS:]] if series is not None else [],
         })
     return {"rows": rows}
+
+
+# --- ETF heat map (IMAP) -----------------------------------------------------
+
+
+def get_sector_weights() -> dict[str, float]:
+    return shape_sector_weights(_call(lambda: yahoo.fetch_sector_weights(SECTOR_SOURCE)))
+
+
+def shape_sector_weights(raw: dict | None) -> dict[str, float]:
+    """The S&P 500's sector weights in percent, keyed like Yahoo's ("technology": 40.5)."""
+    if not isinstance(raw, dict) or not raw:
+        raise UpstreamError(f"Yahoo returned no sector weights for {SECTOR_SOURCE}")
+    return {key: weight * 100 for key, value in raw.items() if (weight := _num(value)) is not None}
+
+
+def get_size(symbol: str) -> dict:
+    return shape_size(_call(lambda: yahoo.fetch_info(symbol)))
+
+
+def shape_size(info: dict | None) -> dict:
+    """How big a fund or company is: a fund's total assets, else its market cap.
+
+    Only dollar sizes are kept, so tiles on one map are always compared in the same currency.
+    """
+    info = info or {}
+    size = _num(info.get("totalAssets")) or _num(info.get("marketCap"))
+    return {
+        "name": info.get("shortName") or info.get("longName"),
+        "size_usd": size if info.get("currency") == "USD" else None,
+    }
+
+
+# --- World map (WMAP) --------------------------------------------------------
+
+
+def get_wmap(today: date) -> dict:
+    start = date(today.year - 1, 12, 1)  # enough history to find last year's final close
+    df = _call(lambda: yahoo.fetch_download([m.symbol for m in WORLD_MARKETS], start))
+    return shape_wmap(df, today.year)
+
+
+def shape_wmap(df: pd.DataFrame | None, year: int) -> dict:
+    """One row per market with its map square, day move, and year to date, in the index's own points."""
+    closes = _closes(df, "world markets")
+    markets = [
+        {
+            "symbol": m.symbol,
+            "index": m.index,
+            "country": m.country,
+            "code": m.code,
+            "region": m.region,
+            "col": m.col,
+            "row": m.row,
+            **_wei_values(closes.get(m.symbol), year),
+        }
+        for m in WORLD_MARKETS
+    ]
+    return {"markets": markets, "regions": WORLD_REGIONS}
