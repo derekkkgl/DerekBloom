@@ -20,7 +20,8 @@ USER_AGENT = "DailyTape/0.1"
 TIMEOUT_SECONDS = 15
 T = TypeVar("T")
 
-TOP_N = 100
+TOP_N = 100  # coins on the CRYPTO board
+LIST_SIZE = 200  # coins downloaded: XMOV ranks movers among these, and DES finds live prices in them
 SUMMARY_CHARS = 800
 MAX_CATEGORIES = 3
 
@@ -38,7 +39,7 @@ def _get(path: str, params: dict | None = None) -> Any:
     return res.json()
 
 
-def fetch_markets(vs_currency: str, sparkline: bool, per_page: int = TOP_N) -> list[dict]:
+def fetch_markets(vs_currency: str, sparkline: bool, per_page: int = LIST_SIZE) -> list[dict]:
     return _get(
         "/coins/markets",
         {
@@ -89,7 +90,7 @@ def _wrap(fn: Callable[[], T]) -> T:
 
 
 def get_markets() -> list[dict]:
-    """Top coins priced in USD and PHP. PHP prices come from CoinGecko itself, not our own FX math."""
+    """Top 200 coins priced in USD and PHP. PHP prices come from CoinGecko itself, not our own FX math."""
     usd = _wrap(lambda: fetch_markets("usd", sparkline=True))
     php = _wrap(lambda: fetch_markets("php", sparkline=True))
     return shape_markets(usd, php)
@@ -145,11 +146,16 @@ def shape_global(raw: dict) -> dict:
     cap = data.get("total_market_cap") or {}
     volume = data.get("total_volume") or {}
     share = data.get("market_cap_percentage") or {}
+    # A day's trading is normally a few percent of the market's value. CoinGecko's total has at times
+    # included a coin with absurd reported volume (2026-10-21: 100,000x the whole market cap), so a
+    # total above the market cap is dropped and flagged instead of shown.
+    unreliable = _over(volume.get("usd"), cap.get("usd"))
     return {
         "market_cap_usd": cap.get("usd"),
         "market_cap_php": cap.get("php"),
-        "volume_24h_usd": volume.get("usd"),
-        "volume_24h_php": volume.get("php"),
+        "volume_24h_usd": None if unreliable else volume.get("usd"),
+        "volume_24h_php": None if unreliable else volume.get("php"),
+        "volume_unreliable": unreliable,
         "market_cap_change_24h_pct": data.get("market_cap_change_percentage_24h_usd"),
         "btc_dominance_pct": share.get("btc"),
         "eth_dominance_pct": share.get("eth"),
@@ -159,21 +165,17 @@ def shape_global(raw: dict) -> dict:
 
 # --- Movers (XMOV) -------------------------------------------------------------
 
-MOVERS_UNIVERSE = 200
 MOVER_WINDOWS = {"24h": "change_24h_pct", "7d": "change_7d_pct"}
 
 
-def get_top200() -> list[dict]:
-    """The top 200 coins in USD and PHP, without sparklines. XMOV ranks these by their move."""
-    usd = _wrap(lambda: fetch_markets("usd", sparkline=False, per_page=MOVERS_UNIVERSE))
-    php = _wrap(lambda: fetch_markets("php", sparkline=False, per_page=MOVERS_UNIVERSE))
-    return [{k: v for k, v in coin.items() if not k.startswith("sparkline")} for coin in shape_markets(usd, php)]
-
-
 def movers(coins: list[dict], window: str, n: int) -> dict:
-    """The n biggest gainers and losers over a window. Coins with no change for that window are left out."""
+    """The n biggest gainers and losers over a window, from the shared top-200 list (sparklines dropped).
+
+    Coins with no change for that window are left out.
+    """
     field = MOVER_WINDOWS[window]
-    moved = sorted((c for c in coins if c.get(field) is not None), key=lambda c: c[field], reverse=True)
+    rows = [{k: v for k, v in c.items() if not k.startswith("sparkline")} for c in coins if c.get(field) is not None]
+    moved = sorted(rows, key=lambda c: c[field], reverse=True)
     return {
         "window": window,
         "universe": len(coins),
@@ -261,6 +263,17 @@ def get_categories() -> list[dict]:
     return shape_categories(_wrap(fetch_categories))
 
 
+def name_top_coins(categories: list[dict], symbols: dict[str, str]) -> list[dict]:
+    """Swap each category's coin ids for ticker symbols ("render-token" -> "RENDER") where we know them."""
+    return [
+        {
+            **{k: v for k, v in c.items() if k != "top_coin_ids"},
+            "top_coins": ", ".join(symbols.get(i) or i for i in c["top_coin_ids"]) or None,
+        }
+        for c in categories
+    ]
+
+
 def shape_categories(raw: list[dict]) -> list[dict]:
     """The top 100 categories by market cap, plus any map sector outside them. `sector` is the map label or null."""
     rows = [c for c in raw or [] if c.get("id") and isinstance(c.get("market_cap"), (int, float))]
@@ -277,10 +290,14 @@ def shape_categories(raw: list[dict]) -> list[dict]:
             "market_cap_usd": c.get("market_cap"),
             "change_24h_pct": c.get("market_cap_change_24h"),
             "volume_24h_usd": c.get("volume_24h"),
-            "top_coins": ", ".join(alias_for_coin(i) or i for i in c.get("top_3_coins_id") or []) or None,
+            "top_coin_ids": [i for i in c.get("top_3_coins_id") or [] if i],
         }
         for rank, c in kept
     ]
+
+
+def _over(value: Any, limit: Any) -> bool:
+    return isinstance(value, (int, float)) and isinstance(limit, (int, float)) and value > limit
 
 
 # --- Coin profile (DES) ------------------------------------------------------

@@ -51,6 +51,14 @@ def test_markets_merge_usd_and_php(client, fake_markets):
     assert body["meta"]["source"] == "coingecko"
 
 
+def test_board_shows_top_100_of_the_200_downloaded(client, monkeypatch):
+    many = [coin(f"c{i}", f"c{i}", 1.0, 1000 - i, rank=i + 1) for i in range(200)]
+    monkeypatch.setattr(coingecko, "fetch_markets", lambda vs_currency, sparkline: many)
+    coins = client.get("/api/crypto/markets").json()["data"]["coins"]
+    assert len(coins) == coingecko.TOP_N == 100
+    assert coins[-1]["rank"] == 100
+
+
 def test_markets_ticker_only_for_aliased_coins(client, fake_markets):
     btc, new = client.get("/api/crypto/markets").json()["data"]["coins"]
     assert btc["ticker"] == "BTC"
@@ -126,6 +134,13 @@ def test_global_shapes_dominance_and_caps(client, fake_global):
     assert d["volume_24h_php"] is None
     assert d["market_cap_change_24h_pct"] is None  # NaN cleaned to null
     assert body["meta"]["source"] == "coingecko"
+
+
+def test_global_volume_above_market_cap_is_dropped():
+    raw = {"data": {"total_market_cap": {"usd": 2.8e12}, "total_volume": {"usd": 2.95e17, "php": 1.9e19}}}
+    d = coingecko.shape_global(raw)
+    assert (d["volume_24h_usd"], d["volume_24h_php"], d["volume_unreliable"]) == (None, None, True)
+    assert coingecko.shape_global(GLOBAL)["volume_unreliable"] is False
 
 
 def test_global_failure_with_nothing_cached_is_502(client, fake_global):

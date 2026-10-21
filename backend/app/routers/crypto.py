@@ -11,7 +11,6 @@ router = APIRouter(prefix="/api/crypto", tags=["crypto"])
 
 MARKETS_TTL = 120
 GLOBAL_TTL = 300
-MOVERS_TTL = 300
 TRENDING_TTL = 600
 SECTORS_TTL = 600
 FEAR_GREED_TTL = 3600  # the index is published once a day
@@ -20,7 +19,7 @@ USD_PHP_TTL = 300
 
 
 def load_markets() -> CacheResult:
-    """The top-100 list. Shared by CRYPTO, Home, and coin DES so they cost one CoinGecko call between them."""
+    """The top-200 list. Shared by CRYPTO, XMOV, Home, and coin DES so they cost two CoinGecko calls between them."""
     return cache.get_or_fetch("crypto:markets", MARKETS_TTL, coingecko.get_markets)
 
 
@@ -35,6 +34,14 @@ def usd_php_rate() -> float | None:
         return None
 
 
+def coin_symbols() -> dict[str, str]:
+    """CoinGecko id -> ticker symbol for the top 200, from the shared list. Empty if CoinGecko is down."""
+    try:
+        return {c["id"]: c["symbol"] for c in load_markets().value if c.get("symbol")}
+    except ApiError:
+        return {}
+
+
 def with_php(rows: list[dict], fields: tuple[str, ...], rate: float | None) -> list[dict]:
     """Add a `<name>_php` next to each `<name>_usd` field, converted at `rate`."""
     def php(value: float | None) -> float | None:
@@ -47,7 +54,7 @@ def with_php(rows: list[dict], fields: tuple[str, ...], rate: float | None) -> l
 def markets(format: Format = "json") -> dict | Response:
     """Top 100 coins by market cap, priced in USD and PHP, with 7-day sparklines in both."""
     result = load_markets()
-    body = ok({"coins": result.value}, "coingecko", result)
+    body = ok({"coins": result.value[: coingecko.TOP_N]}, "coingecko", result)
     if format == "csv":
         rows = [{k: v for k, v in coin.items() if not k.startswith("sparkline")} for coin in body["data"]["coins"]]
         return csv_response(rows, body["meta"], "crypto_markets")
@@ -85,7 +92,7 @@ def movers(
     format: Format = "json",
 ) -> dict | Response:
     """Biggest gainers and losers among the top 200 coins over 24 hours or 7 days."""
-    result = cache.get_or_fetch("crypto:top200", MOVERS_TTL, coingecko.get_top200)
+    result = load_markets()
     body = ok(coingecko.movers(result.value, window, n), "coingecko", result)
     if format == "csv":
         d = body["data"]
@@ -108,7 +115,7 @@ def sectors(format: Format = "json") -> dict | Response:
     """Crypto categories by market cap with their 24-hour change. `sector` marks the ones on the heat map."""
     result = cache.get_or_fetch("crypto:sectors", SECTORS_TTL, coingecko.get_categories)
     rate = usd_php_rate()
-    rows = with_php(result.value, ("market_cap_usd", "volume_24h_usd"), rate)
+    rows = with_php(coingecko.name_top_coins(result.value, coin_symbols()), ("market_cap_usd", "volume_24h_usd"), rate)
     body = ok({"categories": rows, "usd_php": rate}, "coingecko", result)
     if format == "csv":
         return csv_response(body["data"]["categories"], body["meta"], "crypto_sectors")

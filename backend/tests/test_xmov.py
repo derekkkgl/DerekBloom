@@ -28,8 +28,8 @@ USD = [
 def fake_top(monkeypatch):
     calls = []
 
-    def fake(vs_currency, sparkline, per_page=100):
-        calls.append((vs_currency, sparkline, per_page))
+    def fake(vs_currency, sparkline):
+        calls.append((vs_currency, sparkline))
         if vs_currency == "php":
             return [{**c, "current_price": c["current_price"] * 60} for c in USD]
         return USD
@@ -41,7 +41,7 @@ def fake_top(monkeypatch):
 def test_movers_24h(client, fake_top):
     body = client.get("/api/crypto/movers").json()
     d = body["data"]
-    assert fake_top == [("usd", False, 200), ("php", False, 200)]
+    assert fake_top == [("usd", True), ("php", True)]  # the CRYPTO board's list, not a download of its own
     assert (d["window"], d["universe"]) == ("24h", 5)
     assert [c["symbol"] for c in d["gainers"]] == ["PUMP", "BTC"]  # flat and unknown are neither
     assert [c["symbol"] for c in d["losers"]] == ["DUMP"]
@@ -58,6 +58,7 @@ def test_movers_7d_and_n(client, fake_top):
 def test_movers_share_one_cached_download(client, fake_top):
     client.get("/api/crypto/movers?window=24h")
     client.get("/api/crypto/movers?window=7d")
+    client.get("/api/crypto/markets")
     assert len(fake_top) == 2
 
 
