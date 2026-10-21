@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+/* Morning Broadsheet tokens. Ink on cream paper, light mode only (see CLAUDE.md). */
+@theme {
+  --color-paper: #f3eee3;
+  --color-ink: #141414;
+  --color-muted: #5e5a52;
+  --color-hairline: rgb(20 20 20 / 0.16);
+  --color-up: #166b30;
+  --color-down: #b42318;
+
+  /* No rounded corners and no shadows anywhere: remove those scales entirely. */
+  --radius-*: initial;
+  --shadow-*: initial;
+}
+
+/* Font families come from next/font CSS variables set on <html> in layout.tsx. */
+@theme inline {
+  --font-serif: var(--font-source-serif), Georgia, serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    background: var(--color-paper);
+  }
+
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+
+  /* Focus is a 1px ink outline, never color. */
+  :focus-visible {
+    outline: 1px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--color-ink);
+    color: var(--color-paper);
+  }
+}
+
+@utility micro-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted);
+}
