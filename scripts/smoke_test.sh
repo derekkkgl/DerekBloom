@@ -52,6 +52,7 @@ check 200 /api/news
 check 200 "/api/news?category=crypto&limit=10"
 check 200 /api/crypto/markets
 check 200 "/api/crypto/markets?format=csv" csv
+check 200 /api/crypto/global
 
 for t in "${TICKERS[@]}"; do
   check 200 "/api/quote/$t"

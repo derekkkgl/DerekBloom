@@ -17,8 +17,8 @@ Free sources only. Each entry says what it covers, its limits, how reliable it h
 
 ## CoinGecko public API (no key)
 
-- **Used by:** `/api/crypto/markets`
-- **Endpoint:** `GET https://api.coingecko.com/api/v3/coins/markets`, called twice (`vs_currency=usd` with a sparkline, `vs_currency=php` without) and joined by coin id.
+- **Used by:** `/api/crypto/markets`, `/api/crypto/global`
+- **Endpoints:** `GET https://api.coingecko.com/api/v3/coins/markets`, called twice (`vs_currency=usd` with a sparkline, `vs_currency=php` without) and joined by coin id. `GET /global` for total market cap and volume (in every currency, including PHP) and dominance by coin, cached 5 minutes.
 - **Coverage:** top 100 coins by market cap. Price, 1h/24h/7d change, volume, market cap, 7-day hourly sparkline (168 points). Prices in PHP come directly from CoinGecko.
 - **Limits:** the keyless tier is tightly rate-limited and throttles with HTTP 429. We cache 2 minutes and serve the last good copy on failure. A free Demo key (higher limit) can be added later if throttling becomes a problem.
 - **Note:** CoinGecko's PHP prices use its own FX rate. On 2026-10-21 it implied USD/PHP 63.46 vs Yahoo's 63.38 (about 0.13% apart).

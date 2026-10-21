@@ -84,3 +84,49 @@ def test_markets_csv_drops_sparkline(client, fake_markets):
     header = client.get("/api/crypto/markets?format=csv").text.splitlines()[0]
     assert "sparkline_7d" not in header
     assert header.startswith("id,symbol,name,rank,price_usd,price_php")
+
+
+GLOBAL = {
+    "data": {
+        "active_cryptocurrencies": 17000,
+        "total_market_cap": {"usd": 3.9e12, "php": 2.4e14},
+        "total_volume": {"usd": 1.5e11},  # PHP volume missing
+        "market_cap_percentage": {"btc": 58.1, "eth": 12.4},
+        "market_cap_change_percentage_24h_usd": float("nan"),
+    }
+}
+
+
+@pytest.fixture
+def fake_global(monkeypatch):
+    state = {"fail": None}
+
+    def fake():
+        if state["fail"]:
+            raise state["fail"]
+        return GLOBAL
+
+    monkeypatch.setattr(coingecko, "fetch_global", fake)
+    return state
+
+
+def test_global_shapes_dominance_and_caps(client, fake_global):
+    body = client.get("/api/crypto/global").json()
+    d = body["data"]
+    assert (d["btc_dominance_pct"], d["eth_dominance_pct"]) == (58.1, 12.4)
+    assert (d["market_cap_usd"], d["market_cap_php"]) == (3.9e12, 2.4e14)
+    assert d["volume_24h_php"] is None
+    assert d["market_cap_change_24h_pct"] is None  # NaN cleaned to null
+    assert body["meta"]["source"] == "coingecko"
+
+
+def test_global_failure_with_nothing_cached_is_502(client, fake_global):
+    fake_global["fail"] = ConnectionError("timeout")
+    res = client.get("/api/crypto/global")
+    assert res.status_code == 502
+    assert "timeout" in res.json()["error"]["message"]
+
+
+def test_global_without_data_is_an_error():
+    with pytest.raises(UpstreamError):
+        coingecko.shape_global({"status": {"error_code": 1}})

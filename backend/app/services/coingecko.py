@@ -16,17 +16,10 @@ TIMEOUT_SECONDS = 15
 TOP_N = 100
 
 
-def fetch_markets(vs_currency: str, sparkline: bool) -> list[dict]:
+def _get(path: str, params: dict | None = None) -> Any:
     res = requests.get(
-        f"{BASE_URL}/coins/markets",
-        params={
-            "vs_currency": vs_currency,
-            "order": "market_cap_desc",
-            "per_page": TOP_N,
-            "page": 1,
-            "sparkline": str(sparkline).lower(),
-            "price_change_percentage": "1h,24h,7d",
-        },
+        f"{BASE_URL}{path}",
+        params=params,
         headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
         timeout=TIMEOUT_SECONDS,
     )
@@ -34,6 +27,24 @@ def fetch_markets(vs_currency: str, sparkline: bool) -> list[dict]:
         raise UpstreamError("CoinGecko rate limit reached (HTTP 429). Try again in a minute.")
     res.raise_for_status()
     return res.json()
+
+
+def fetch_markets(vs_currency: str, sparkline: bool) -> list[dict]:
+    return _get(
+        "/coins/markets",
+        {
+            "vs_currency": vs_currency,
+            "order": "market_cap_desc",
+            "per_page": TOP_N,
+            "page": 1,
+            "sparkline": str(sparkline).lower(),
+            "price_change_percentage": "1h,24h,7d",
+        },
+    )
+
+
+def fetch_global() -> dict:
+    return _get("/global")
 
 
 def get_markets() -> list[dict]:
@@ -73,3 +84,33 @@ def shape_markets(usd: list[dict], php: list[dict]) -> list[dict]:
             }
         )
     return coins
+
+
+def get_global() -> dict:
+    """Whole crypto market: total cap, volume, and BTC / ETH dominance."""
+    try:
+        raw = fetch_global()
+    except ApiError:
+        raise
+    except Exception as exc:
+        raise UpstreamError(f"CoinGecko request failed: {type(exc).__name__}: {exc}") from exc
+    return shape_global(raw)
+
+
+def shape_global(raw: dict) -> dict:
+    data = raw.get("data")
+    if not data:
+        raise UpstreamError("CoinGecko returned no global market data")
+    cap = data.get("total_market_cap") or {}
+    volume = data.get("total_volume") or {}
+    share = data.get("market_cap_percentage") or {}
+    return {
+        "market_cap_usd": cap.get("usd"),
+        "market_cap_php": cap.get("php"),
+        "volume_24h_usd": volume.get("usd"),
+        "volume_24h_php": volume.get("php"),
+        "market_cap_change_24h_pct": data.get("market_cap_change_percentage_24h_usd"),
+        "btc_dominance_pct": share.get("btc"),
+        "eth_dominance_pct": share.get("eth"),
+        "active_coins": data.get("active_cryptocurrencies"),
+    }

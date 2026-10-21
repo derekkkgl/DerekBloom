@@ -16,6 +16,7 @@ A FastAPI backend on `http://localhost:8000` that fetches market data, cleans it
 | `GET /api/wei` | 16 world indices + BTC, ETH, USD/PHP, DXY, gold, crude, US 10Y, with YTD and open/closed | Yahoo | 60 s |
 | `GET /api/news?category=all\|markets\|crypto&limit=50` | Deduplicated headlines, newest first | RSS | 5 min per feed |
 | `GET /api/crypto/markets` | Top 100 coins in USD and PHP, 1h/24h/7d change, sparkline | CoinGecko | 2 min |
+| `GET /api/crypto/global` | Total crypto market cap and volume (USD, PHP), BTC and ETH dominance | CoinGecko | 5 min |
 
 Tickers accept aliases: `BTC`, `ETH`, `XRP`, `SOL`, `BNB`, `ADA`, `DOGE`, `USDPHP`. International listings use Yahoo suffixes (`7203.T`, `0700.HK`).
 
