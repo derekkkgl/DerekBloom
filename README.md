@@ -2,7 +2,7 @@
 
 A local, self-hosted financial terminal inspired by the Bloomberg Terminal, built on free data. Focus: crypto and international markets, with PHP as the home currency.
 
-**Status:** Phase 4a done. On top of v1's live market screens (front page, world indices, crypto board, price charts, descriptions, news, function directory), the paper now holds your own portfolio: transactions you enter by hand, holdings with value and P&L in pesos, cash-flow yield, and months to your income goal. CSV import from exchanges is Phase 4b. See [docs/ROADMAP.md](docs/ROADMAP.md) for the full plan.
+**Status:** Phase 4 done. On top of v1's live market screens (front page, world indices, crypto board, price charts, descriptions, news, function directory), the paper now holds your own portfolio: transactions you enter by hand, holdings with value and P&L in pesos, cash-flow yield, and months to your income goal. CSV import from exchanges comes later, in Phase 9. See [docs/ROADMAP.md](docs/ROADMAP.md) for the full plan.
 
 ![The Daily Tape front page](docs/screenshot.png)
 

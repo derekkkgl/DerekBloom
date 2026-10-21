@@ -73,7 +73,8 @@ Works for US and international listings (Yahoo suffixes) unless noted.
 | --- | --- | --- | --- |
 | `PORT` | Portfolio | Holdings from transactions, cost basis including trading fees, market value, unrealized and realized P&L, allocation by asset class (crypto, stocks, ETFs, cash), region, and currency, all viewable in PHP | 4 |
 | `PORT` risk tab | Risk | Volatility, max drawdown, beta vs a benchmark, correlation of holdings, crypto share of portfolio | 6 |
-| `TXN` | Transactions | Add, edit, delete buys, sells, dividends, deposits, transfers; CSV import from exchange and broker exports | 4 |
+| `TXN` | Transactions | Add, edit, delete buys, sells, dividends, deposits, transfers | 4 |
+| `TXN` import | CSV import | Read exchange and broker exports (Coins.ph, Binance, Gotrade) into transactions | 9 |
 | `GOAL` | Income goal | Target monthly income (default ₱2,000), current yield of holdings, capital needed at an assumed yield, months to goal at a monthly contribution, projected path chart | 4 |
 | `YLD` | Cash-flow yield | Expected yearly income from each holding (dividends, staking or interest entered manually) | 4 |
 | `ALRT` | Alerts | Price level and % move alerts for stocks and coins; backend checks on a schedule (crypto runs 24/7) and sends a macOS notification (`osascript`) plus an in-app toast | 7 |
@@ -102,10 +103,10 @@ Done when: the shell loads with the masthead and the real ticker tape, every sec
 `WEI`, `CRYPTO`, `GP` (core chart: candles, volume, SMA 20/50/200, ranges), `DES` (stocks and coins), `N`, `HELP` wired to the API, Home front page wired to live data, `start.sh`, README with setup steps and a screenshot.
 Done when: `./start.sh` starts everything, `BTC GP` and `NVDA GP` draw real candlestick charts, `ETH DES` shows supply and all-time high, and the repo is pushed. **This is v1. Celebrate it.**
 
-**Phase 4: Portfolio, PHP, and goal** (split in two)
-- **4a (done):** SQLite schema and migrations in `sql/`, transactions with trading fees in cost basis (peso cost at Yahoo's USD/PHP on the trade date; spreads and FX costs not tracked, Derek's choice), global PHP toggle on portfolio totals, `PORT`, `TXN` (manual entry), `YLD` (with dividend withholding), `GOAL`, Excel export on every table.
-  Done when: Derek enters his real holdings by hand and sees value and P&L in PHP and months to his income goal.
-- **4b:** CSV import from exchange and broker exports (Coins.ph, Binance, Gotrade), one importer at a time: pick the file and source, preview each row as New, Duplicate, or Error, then import. The `source` and `source_hash` columns are already in the schema.
+**Phase 4: Portfolio, PHP, and goal** (done)
+SQLite schema and migrations in `sql/`, transactions with trading fees in cost basis (peso cost at Yahoo's USD/PHP on the trade date; spreads and FX costs not tracked, Derek's choice), global PHP toggle on portfolio totals, `PORT`, `TXN` (manual entry), `YLD` (with dividend withholding), `GOAL`, Excel export on every table.
+Done when: Derek enters his real holdings by hand and sees value and P&L in PHP and months to his income goal.
+CSV import was planned as Phase 4b. Derek moved it to Phase 9; he enters trades by hand until then.
 
 **Phase 5: Crypto depth and global breadth**
 `XGLB`, `XMOV`, `XSEC`, `DEFI`, `WMAP`, `MOST`, `MOV`, `IMAP`, `FX`, `CMDTY`, `GC`, `RATES`, `ECO`. FRED key in `.env`.
@@ -119,6 +120,7 @@ Linked panels, `LP` layouts, `ALRT`, `NOTE`, `EQS`, `BRIEF`, `SQL`, `XL`.
 **Phase 8: Polish**
 Full keyboard map, empty and error states everywhere, performance pass (memoized tables, virtualized long lists), README with GIF demo, architecture diagram, and a "how I built this" section for the portfolio.
 
-**Phase 9 (optional, low priority): Philippines**
+**Phase 9 (optional, low priority): Philippines and CSV import**
 Research free sources for PSE quotes, PSEi, ATRAM global feeder funds and other UITF NAVPU history, PH T-bill auction results, BSP policy rate, and Pag-IBIG MP2 rates. Write findings to `docs/data-sources.md`. Ask Derek before any scraping. Where no reliable free source exists, support manual price entry (for example, typing in a fund's NAVPU) so these assets still count in `PORT` and `GOAL`.
 Derek's first case (asked for during Phase 4a): his GCash GFunds UITFs, ATRAM Global Technology Feeder Fund, BPI Philippine Stock Index Fund, and ATRAM Peso Money Market Fund. Until then he logs their total as PHP cash on PORT.
+CSV import (moved here from Phase 4b): read exchange and broker exports (Coins.ph, Binance, Gotrade) into transactions, one importer at a time. Ask Derek which app goes first, find the steps to download its history for him, and get a sample export with personal details removed, kept in a git-ignored `samples/` folder; tests use made-up fixtures with the same columns. Flow: pick the file and the source, preview every row as New, Duplicate (already imported), or Error (with the reason), then press Import; nothing is saved before Import. The browser reads the file and POSTs its text as JSON; Python's `csv` module parses it in `backend/app/services/importers/`, one module per source, returning per-row errors instead of failing the whole file. The `source` and `source_hash` columns are already in the schema. Same rules as manual entry: the buy price is optional, fees go into cost, the account is optional.
