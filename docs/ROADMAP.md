@@ -121,3 +121,4 @@ Full keyboard map, empty and error states everywhere, performance pass (memoized
 
 **Phase 9 (optional, low priority): Philippines**
 Research free sources for PSE quotes, PSEi, ATRAM global feeder funds and other UITF NAVPU history, PH T-bill auction results, BSP policy rate, and Pag-IBIG MP2 rates. Write findings to `docs/data-sources.md`. Ask Derek before any scraping. Where no reliable free source exists, support manual price entry (for example, typing in a fund's NAVPU) so these assets still count in `PORT` and `GOAL`.
+Derek's first case (asked for during Phase 4a): his GCash GFunds UITFs, ATRAM Global Technology Feeder Fund, BPI Philippine Stock Index Fund, and ATRAM Peso Money Market Fund. Until then he logs their total as PHP cash on PORT.
