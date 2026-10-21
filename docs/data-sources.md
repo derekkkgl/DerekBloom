@@ -4,25 +4,28 @@ Free sources only. Each entry says what it covers, its limits, how reliable it h
 
 ## Yahoo Finance (via `yfinance` 1.7.0)
 
-- **Used by:** `/api/quote`, `/api/chart`, `/api/wei`
+- **Used by:** `/api/quote`, `/api/quotes`, `/api/chart`, `/api/wei`, `/api/des` (stocks and ETFs)
 - **Coverage:** US and international stocks and ETFs (Yahoo suffixes: `7203.T`, `0700.HK`, `ASML.AS`, `D05.SI`), global indices (`^GSPC`, `^N225` ...), FX (`PHP=X` = USD/PHP), futures (`GC=F`, `CL=F`), the dollar index (`DX-Y.NYB`), US 10Y yield (`^TNX`), and crypto price history (`BTC-USD`).
 - **Limits:** unofficial, no API key, and Yahoo rate-limits heavy use (`YFRateLimitError` → we return 502 or the stale copy). Intraday history only goes back so far: 1m bars about 7 days, 5m–30m about 60 days, 1h about 730 days. Some international index quotes are delayed.
 - **Quirks found:**
   - In yfinance 1.7, `Ticker.fast_info` returns `None` for every field, so quotes use `Ticker.info` instead (one request, includes the name).
   - An unknown ticker doesn't raise. `.info` returns `{"trailingPegRatio": None}` and history comes back empty, so we treat "no price and no name" as 404.
   - A batch `yf.download` across exchanges has NaN on days a given market was closed, so WEI takes each symbol's last non-NaN close.
+  - `/api/quotes` uses one `yf.download` for the whole list (about 45 days of daily bars), so a list of 8 tickers is one request. A ticker Yahoo doesn't know comes back as an all-NaN column and shows as nulls.
+  - Profile fields (`Ticker.info`, used by DES, checked on NVDA, VOO, QQQ, 7203.T): `dividendYield` is in percent in yfinance 1.7 (`0.46` means 0.46%) but has been a fraction in older versions, so DES computes yield itself as `dividendRate / price × 100` (falling back to `trailingAnnualDividendRate`, which is all ETFs have). `netExpenseRatio` is already in percent (`0.03` = 0.03%). `exDividendDate` is Unix seconds. ETFs have no `sector`, `marketCap`, `beta`, `forwardPE`, `priceToSalesTrailing12Months`, or `enterpriseToEbitda`; they have `beta3Year`, `fundFamily`, `category`, `totalAssets`/`netAssets`, and `trailingPE`. Toyota (`7203.T`) has full stock fields in JPY.
   - Prices often arrive with float32 noise (e.g. `7712.56982421875`). We pass them through unchanged, and the frontend formatter rounds for display.
 - **Reliability:** all 23 WEI symbols and the 7 Phase 1 test tickers returned data.
 - **Last checked:** 2026-10-21
 
 ## CoinGecko public API (no key)
 
-- **Used by:** `/api/crypto/markets`, `/api/crypto/global`
-- **Endpoints:** `GET https://api.coingecko.com/api/v3/coins/markets`, called twice (`vs_currency=usd` with a sparkline, `vs_currency=php` without) and joined by coin id. `GET /global` for total market cap and volume (in every currency, including PHP) and dominance by coin, cached 5 minutes.
+- **Used by:** `/api/crypto/markets`, `/api/crypto/global`, `/api/des` (coins)
+- **Endpoints:** `GET https://api.coingecko.com/api/v3/coins/markets`, called twice (`vs_currency=usd` and `vs_currency=php`, both with a sparkline) and joined by coin id. The PHP call supplies peso prices, peso % changes, peso volume, and the peso sparkline. `GET /global` for total market cap and volume (in every currency, including PHP) and dominance by coin, cached 5 minutes. `GET /coins/{id}?localization=false&tickers=false&community_data=false&developer_data=false` for a coin's profile (description, categories, links, circulating/total/max supply, fully diluted value, all-time high and its date, each in USD and PHP), cached 6 hours.
+- **Coin DES:** the profile is cached 6 hours; the live price comes from the cached `/coins/markets` list (2 minutes), so opening a coin's DES costs at most one extra call every 6 hours. A coin outside the top 100 shows the profile's own price, which can be up to 6 hours old (the panel's time says so). The description's first paragraph is shown as plain text, cut at about 800 characters.
 - **Coverage:** top 100 coins by market cap. Price, 1h/24h/7d change, volume, market cap, 7-day hourly sparkline (168 points). Prices in PHP come directly from CoinGecko.
 - **Limits:** the keyless tier is tightly rate-limited and throttles with HTTP 429. We cache 2 minutes and serve the last good copy on failure. A free Demo key (higher limit) can be added later if throttling becomes a problem.
 - **Note:** CoinGecko's PHP prices use its own FX rate. On 2026-10-21 it implied USD/PHP 63.46 vs Yahoo's 63.38 (about 0.13% apart).
-- **Reliability:** both calls returned 100 coins.
+- **Reliability:** both market calls returned 100 coins; `/coins/ethereum` returned every DES field (ETH has no max supply, which shows as —).
 - **Last checked:** 2026-10-21
 
 ## RSS news feeds (`requests` + `feedparser`)

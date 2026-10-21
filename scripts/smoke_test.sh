@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hit every Phase 1 endpoint on a running backend with real data.
+# Hit every endpoint on a running backend with real data.
 # Usage: ./scripts/smoke_test.sh            (default http://localhost:8000)
 #        BASE_URL=http://127.0.0.1:9000 ./scripts/smoke_test.sh
 # Exits non-zero if any check fails.
@@ -60,11 +60,22 @@ for t in "${TICKERS[@]}"; do
 done
 check 200 "/api/chart/BTC?range=5d&interval=15m"
 check 200 "/api/chart/NVDA?range=6mo&format=csv" csv
+check 200 "/api/chart/NVDA?range=1d&interval=5m"
+check 200 "/api/chart/BTC?range=5y&interval=1wk"
+check 200 "/api/chart/ETH?range=max&interval=1mo"
+
+check 200 "/api/quotes?symbols=AAPL,NVDA,MSFT,GOOGL,AMZN,VOO,QQQ,VT"
+check 200 "/api/quotes?symbols=AAPL,NVDA,VOO&format=csv" csv
+for t in NVDA VOO 7203.T ETH BTC; do
+  check 200 "/api/des/$t"
+done
 
 # These must fail cleanly.
 check 400 "/api/quote/BAD%24"
 check 404 /api/quote/ZZZZNOTREAL
 check 400 "/api/chart/NVDA?range=1y&interval=1m"
+check 400 "/api/quotes?symbols="
+check 404 /api/des/ZZZZNOTREAL
 
 echo
 echo "$PASS passed, $FAIL failed"
