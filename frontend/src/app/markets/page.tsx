@@ -13,7 +13,7 @@ export default function Markets() {
       <Panel title="In this section">
         <FunctionList functions={functionsIn("markets")} />
         <p className="mt-2 text-[12px] text-muted">
-          These screens arrive in Phase 3. Currencies, commodities, rates, and the crypto market overview follow in Phase 5.
+          Currencies, commodities, rates, and the crypto market overview arrive in Phase 5.
         </p>
       </Panel>
     </>
