@@ -1,9 +1,5 @@
-import { ComingSoon } from "@/components/ComingSoon";
 import type { TerminalFunction } from "@/lib/registry";
-
-function WorldIndices() {
-  return <ComingSoon phase={3}>The world board: Americas, Europe, and Asia-Pacific indices with day and year-to-date change and whether each market is open.</ComingSoon>;
-}
+import { WorldIndices } from "./WorldIndices";
 
 export const WEI: TerminalFunction = {
   mnemonic: "WEI",
