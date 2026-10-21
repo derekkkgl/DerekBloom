@@ -1,5 +1,6 @@
 """Build the standard response: {"data": ..., "meta": {...}} as JSON, or a flat CSV table."""
 
+import time
 from datetime import datetime, timezone
 from typing import Any, Literal
 
@@ -23,6 +24,11 @@ def build_meta(source: str, fetched_at: float, cached: bool, stale: bool) -> dic
 
 def ok(data: Any, source: str, result: CacheResult) -> dict:
     return clean({"data": data, "meta": build_meta(source, result.fetched_at, result.cached, result.stale)})
+
+
+def ok_local(data: Any) -> dict:
+    """Envelope for data read from the local database: fresh on every request."""
+    return ok(data, "local", CacheResult(data, time.time(), cached=False, stale=False))
 
 
 def csv_response(rows: list[dict], meta: dict, filename: str) -> Response:
