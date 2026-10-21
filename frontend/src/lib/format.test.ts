@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autoDecimals, direction, formatNumber, formatPercent, formatTime, MISSING } from "./format";
+import { autoDecimals, direction, formatDate, formatNumber, formatPercent, formatStamp, formatTime, MISSING, priceDecimals } from "./format";
 
 describe("formatNumber", () => {
   it("adds thousands separators and rounds float noise from Yahoo", () => {
@@ -64,5 +64,31 @@ describe("formatTime", () => {
     expect(formatTime(null)).toBe(MISSING);
     expect(formatTime("not a date")).toBe(MISSING);
     expect(formatTime("2026-10-21T09:43:38Z")).toMatch(/^\d{2}:\d{2}$/);
+  });
+});
+
+describe("formatDate and formatStamp", () => {
+  it("reads date-only strings as calendar dates", () => {
+    expect(formatDate("2025-08-24")).toBe("24 Aug 2025");
+    expect(formatDate("2026-10-20", { year: false })).toBe("20 Oct");
+    expect(formatDate(null)).toBe(MISSING);
+    expect(formatDate("garbage")).toBe(MISSING);
+  });
+
+  it("shows a time for today's stories and a date for older ones", () => {
+    const now = new Date(2026, 9, 21, 18, 0);
+    expect(formatStamp(new Date(2026, 9, 21, 9, 41).toISOString(), now)).toBe("09:41");
+    expect(formatStamp(new Date(2026, 9, 20, 9, 41).toISOString(), now)).toBe("20 Oct");
+    expect(formatStamp(null, now)).toBe(MISSING);
+  });
+});
+
+describe("priceDecimals", () => {
+  it("shows BTC in whole units and small coins with more decimals", () => {
+    expect(priceDecimals("BTC", 100_000)).toBe(0);
+    expect(priceDecimals("BTC-USD", 100_000)).toBe(0);
+    expect(priceDecimals("ETH", 2_400)).toBe(2);
+    expect(priceDecimals("DOGE", 0.21)).toBe(4);
+    expect(priceDecimals("X", null)).toBe(2);
   });
 });

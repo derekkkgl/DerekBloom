@@ -30,6 +30,15 @@ export function autoDecimals(value: number): number {
   return 6;
 }
 
+// House style: Bitcoin is quoted in whole units (whole dollars or pesos).
+const WHOLE_UNIT_SYMBOLS = new Set(["BTC", "BTC-USD"]);
+
+/** Decimals for a price of a known symbol: whole units for BTC, otherwise autoDecimals. */
+export function priceDecimals(symbol: string | null | undefined, price: number | null | undefined): number {
+  if (symbol && WHOLE_UNIT_SYMBOLS.has(symbol)) return 0;
+  return typeof price === "number" && Number.isFinite(price) ? autoDecimals(price) : 2;
+}
+
 const COMPACT_STEPS: [number, string][] = [
   [1e12, "T"],
   [1e9, "B"],
@@ -92,4 +101,26 @@ export function formatTime(iso: string | null | undefined): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return MISSING;
   return date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
+
+/** "24 Aug 2025" from an ISO date or timestamp. Date-only strings are read as calendar dates, not shifted by timezone. */
+export function formatDate(iso: string | null | undefined, opts: { year?: boolean } = {}): string {
+  if (!iso) return MISSING;
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(iso);
+  const date = new Date(dateOnly ? `${iso}T00:00:00Z` : iso);
+  if (Number.isNaN(date.getTime())) return MISSING;
+  return date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    ...(opts.year === false ? {} : { year: "numeric" }),
+    ...(dateOnly ? { timeZone: "UTC" } : {}),
+  });
+}
+
+/** A story's time: "09:41" if it's from today, else "20 Oct". */
+export function formatStamp(iso: string | null | undefined, now: Date = new Date()): string {
+  if (!iso) return MISSING;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return MISSING;
+  return date.toDateString() === now.toDateString() ? formatTime(iso) : formatDate(iso, { year: false });
 }

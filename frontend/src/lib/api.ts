@@ -68,3 +68,164 @@ export type CryptoGlobal = {
   eth_dominance_pct: number | null;
   active_coins: number | null;
 };
+
+export type Quote = {
+  input: string;
+  symbol: string;
+  name: string | null;
+  type: string | null;
+  currency: string | null;
+  exchange: string | null;
+  price: number | null;
+  prev_close: number | null;
+  change: number | null;
+  change_pct: number | null;
+  open: number | null;
+  day_high: number | null;
+  day_low: number | null;
+  volume: number | null;
+  year_high: number | null;
+  year_low: number | null;
+  market_cap: number | null;
+  market_time: string | null;
+};
+
+export type BatchQuote = {
+  input: string;
+  symbol: string;
+  last: number | null;
+  prev_close: number | null;
+  change: number | null;
+  change_pct: number | null;
+  last_date: string | null;
+  closes: number[]; // about a month of daily closes, oldest first
+};
+
+export type Quotes = { quotes: BatchQuote[] };
+
+export type Candle = {
+  time: number; // Unix seconds
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number;
+  volume: number | null;
+  sma20: number | null;
+  sma50: number | null;
+  sma200: number | null;
+};
+
+export type ChartData = { symbol: string; currency: string | null; range: string; interval: string; candles: Candle[] };
+
+export type CryptoCoin = {
+  id: string;
+  ticker: string | null; // the Look up alias (BTC), or null when the coin has none yet
+  symbol: string | null;
+  name: string | null;
+  rank: number | null;
+  price_usd: number | null;
+  price_php: number | null;
+  change_1h_pct: number | null;
+  change_24h_pct: number | null;
+  change_7d_pct: number | null;
+  change_1h_pct_php: number | null;
+  change_24h_pct_php: number | null;
+  change_7d_pct_php: number | null;
+  volume_usd: number | null;
+  volume_php: number | null;
+  market_cap_usd: number | null;
+  market_cap_php: number | null;
+  sparkline_7d: number[];
+  sparkline_7d_php: number[];
+};
+
+export type CryptoMarkets = { coins: CryptoCoin[] };
+
+export type DesSecurity = {
+  kind: "security";
+  input: string;
+  symbol: string;
+  name: string | null;
+  type: string | null;
+  exchange: string | null;
+  currency: string | null;
+  sector: string | null;
+  industry: string | null;
+  country: string | null;
+  website: string | null;
+  employees: number | null;
+  summary: string | null;
+  market_cap: number | null;
+  enterprise_value: number | null;
+  beta: number | null;
+  year_low: number | null;
+  year_high: number | null;
+  pe_trailing: number | null;
+  pe_forward: number | null;
+  price_to_book: number | null;
+  price_to_sales: number | null;
+  ev_to_ebitda: number | null;
+  dividend_rate: number | null;
+  dividend_yield_pct: number | null;
+  ex_dividend_date: string | null;
+  fund: { family: string | null; category: string | null; total_assets: number | null; expense_ratio_pct: number | null } | null;
+};
+
+export type DesCoin = {
+  kind: "coin";
+  input: string;
+  id: string;
+  symbol: string | null;
+  name: string | null;
+  rank: number | null;
+  categories: string[];
+  summary: string | null;
+  genesis_date: string | null;
+  links: { homepage: string | null; whitepaper: string | null; explorer: string | null; source: string | null };
+  circulating_supply: number | null;
+  total_supply: number | null;
+  max_supply: number | null;
+  price_usd: number | null;
+  price_php: number | null;
+  change_24h_pct: number | null;
+  change_24h_pct_php: number | null;
+  volume_usd: number | null;
+  volume_php: number | null;
+  market_cap_usd: number | null;
+  market_cap_php: number | null;
+  fdv_usd: number | null;
+  fdv_php: number | null;
+  ath_usd: number | null;
+  ath_php: number | null;
+  ath_date_usd: string | null;
+  ath_date_php: string | null;
+  from_ath_pct_usd: number | null;
+  from_ath_pct_php: number | null;
+};
+
+export type Des = DesSecurity | DesCoin;
+
+export type NewsItem = {
+  title: string;
+  url: string;
+  source: string;
+  category: "markets" | "crypto";
+  published: string | null;
+  summary: string | null;
+};
+
+export type NewsSource = { name: string; ok: boolean; count: number; stale: boolean; error: string | null };
+
+export type News = { items: NewsItem[]; sources: NewsSource[] };
+
+/** One header line for a screen that shows two responses: the older time, stale if either is. */
+export function combineMeta(...metas: (Meta | null)[]): Meta | null {
+  const present = metas.filter((m): m is Meta => m !== null);
+  if (present.length === 0) return null;
+  return {
+    source: [...new Set(present.map((m) => m.source))].join(", "),
+    as_of: present.map((m) => m.as_of).sort()[0],
+    cached: present.every((m) => m.cached),
+    stale: present.some((m) => m.stale),
+  };
+}
