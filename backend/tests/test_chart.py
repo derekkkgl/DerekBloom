@@ -96,5 +96,5 @@ def test_chart_csv(client, fake_history):
     assert res.headers["content-type"].startswith("text/csv")
     assert res.headers["x-data-source"] == "yahoo"
     lines = res.text.strip().splitlines()
-    assert lines[0] == "time,open,high,low,close,volume,sma20,sma50,sma200"
+    assert lines[0] == "time,open,high,low,close,volume,sma20,sma50,sma200,close_time"
     assert len(lines) == 400  # header + 399 bars (one NaN close dropped)

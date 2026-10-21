@@ -8,7 +8,8 @@ Tests replace the fetchers with small fake DataFrames and run the shapers for re
 import math
 import threading
 from collections.abc import Callable
-from datetime import date, datetime, timedelta, timezone
+from dataclasses import dataclass
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Literal, TypeVar
 
 import pandas as pd
@@ -21,6 +22,7 @@ from app.core.tickers import Ticker
 
 T = TypeVar("T")
 
+Currency = Literal["native", "PHP"]
 Range = Literal["1d", "5d", "1mo", "3mo", "6mo", "ytd", "1y", "2y", "5y", "10y", "max"]
 Interval = Literal["1m", "5m", "15m", "30m", "1h", "1d", "1wk", "1mo"]
 
@@ -53,6 +55,15 @@ RANGE_OFFSETS: dict[str, pd.DateOffset] = {
 WARMUP_DAYS = {"1d": 320, "1wk": 1450, "1mo": 6200}
 
 SMA_WINDOWS = (20, 50, 200)
+
+# Charts in pesos convert every bar at the USD/PHP rate of its own time, never today's rate.
+FX_SYMBOL = "PHP=X"
+NOT_CONVERTIBLE = {
+    "INDEX": "This is an index measured in points, not a price, so it stays as is.",
+    "CURRENCY": "This is an exchange rate, so it stays as is.",
+}
+# Intraday FX bars are fetched over a longer window, so 24/7 coins still have a rate for their first bars.
+FX_INTRADAY_PERIOD = {"1d": "5d", "5d": "1mo"}
 
 QUOTES_HISTORY_DAYS = 45  # about 30 trading days: enough for the previous close and a 1-month sparkline
 SPARK_POINTS = 22  # about one month of daily closes
@@ -162,16 +173,131 @@ def range_start(rng: str, now: datetime) -> pd.Timestamp:
     return pd.Timestamp(now).tz_convert("UTC") - RANGE_OFFSETS[rng]
 
 
-def get_chart(ticker: Ticker, rng: str, interval: str, now: datetime) -> dict:
+def get_chart(ticker: Ticker, rng: str, interval: str, now: datetime, currency: Currency = "native") -> dict:
     validate_chart_params(rng, interval)
     if interval in INTRADAY or rng == "max":
         visible_start = None
-        df, meta = _call(lambda: fetch_history(ticker.symbol, interval, period=rng))
+        fetch = lambda symbol, period=rng: fetch_history(symbol, interval, period=period)  # noqa: E731
+        df, meta = _call(lambda: fetch(ticker.symbol))
     else:
         visible_start = range_start(rng, now)
         fetch_from = (visible_start - timedelta(days=WARMUP_DAYS[interval])).date()
-        df, meta = _call(lambda: fetch_history(ticker.symbol, interval, start=fetch_from))
-    return shape_chart(ticker, rng, interval, df, meta.get("currency"), visible_start)
+        fetch = lambda symbol, period=None: fetch_history(symbol, interval, start=fetch_from)  # noqa: E731
+        df, meta = _call(lambda: fetch(ticker.symbol))
+
+    conversion = None
+    if currency == "PHP" and df is not None and not df.empty:
+        blocker = php_blocker(meta)
+        if blocker:
+            conversion = {"converted": False, "note": blocker}
+        else:
+            try:
+                fx, _ = _call(lambda: fetch(FX_SYMBOL, FX_INTRADAY_PERIOD.get(rng, rng)))
+                df, note = convert_to_php(df, fx, interval in INTRADAY)
+                conversion = {"converted": True, "note": note}
+            except (ApiError, ValueError) as exc:
+                reason = exc.message if isinstance(exc, ApiError) else str(exc)
+                conversion = {"converted": False, "note": f"USD/PHP history isn't available right now ({reason}), so prices stay in USD."}
+
+    return shape_chart(ticker, rng, interval, df, meta.get("currency"), visible_start, meta=meta, conversion=conversion)
+
+
+def php_blocker(meta: dict) -> str | None:
+    """Why this chart can't be shown in pesos, or None if it can."""
+    kind = meta.get("instrumentType")
+    if kind in NOT_CONVERTIBLE:
+        return NOT_CONVERTIBLE[kind]
+    native = meta.get("currency")
+    if native != "USD":
+        return f"Prices are in {native or 'an unknown currency'}; only USD prices convert to PHP so far."
+    return None
+
+
+def _bar_keys(index: pd.DatetimeIndex, intraday: bool) -> pd.DatetimeIndex:
+    """Match bars by exact time intraday, and by trading date for daily and longer bars.
+
+    Daily bars are stamped at local midnight of their exchange, so rounding to the nearest
+    UTC midnight gives the same date for a New York bar and the matching London FX bar.
+    """
+    utc = index.tz_convert("UTC") if index.tz is not None else index.tz_localize("UTC")
+    return utc if intraday else (utc + pd.Timedelta(hours=12)).floor("D")
+
+
+def convert_to_php(df: pd.DataFrame, fx: pd.DataFrame | None, intraday: bool) -> tuple[pd.DataFrame, str]:
+    """Multiply each bar's prices by the USD/PHP close of the same bar (or the last one before it).
+
+    Volume stays in shares or coins. Bars older than the FX history are dropped, not guessed.
+    """
+    rates = fx["Close"].dropna() if fx is not None and "Close" in fx.columns else pd.Series(dtype=float)
+    if rates.empty:
+        raise ValueError("Yahoo returned no USD/PHP bars")
+
+    left = pd.DataFrame({"key": _bar_keys(df.index, intraday), "row": range(len(df))})
+    right = pd.DataFrame({"key": _bar_keys(rates.index, intraday), "rate": rates.to_numpy()})
+    right = right.drop_duplicates("key", keep="last").sort_values("key")
+    matched = pd.merge_asof(left.sort_values("key"), right, on="key", direction="backward").sort_values("row")
+    rate = matched["rate"].to_numpy()
+
+    keep = ~pd.isna(rate)
+    out = df.loc[keep].copy()
+    for column in ("Open", "High", "Low", "Close"):
+        if column in out.columns:
+            out[column] = out[column].to_numpy() * rate[keep]
+
+    note = "Each bar is converted at the USD/PHP rate of its own time (Yahoo PHP=X). When FX markets are closed, the last rate is used."
+    if not keep.all():
+        first = rates.index[0]
+        note += f" USD/PHP history starts {first:%b %Y}, so earlier bars are left out."
+    return out, note
+
+
+@dataclass(frozen=True)
+class Session:
+    """When a market's regular day ends, in its own timezone."""
+
+    tz: str
+    end: time
+    seven_day: bool  # crypto trades every day; stocks Monday to Friday
+
+
+def session_from_meta(meta: dict) -> Session | None:
+    tz = meta.get("exchangeTimezoneName")
+    end = ((meta.get("currentTradingPeriod") or {}).get("regular") or {}).get("end")
+    end_ts = _to_timestamp(end)
+    if not tz or end_ts is None:
+        return None
+    return Session(tz, end_ts.tz_convert(tz).time(), meta.get("instrumentType") == "CRYPTOCURRENCY")
+
+
+def _to_timestamp(value: Any) -> pd.Timestamp | None:
+    """yfinance gives trading times as Timestamps or Unix seconds, depending on version."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return pd.Timestamp(value, unit="s", tz="UTC")
+    ts = pd.Timestamp(value)
+    return ts.tz_localize("UTC") if ts.tzinfo is None else ts
+
+
+def close_times(index: pd.DatetimeIndex, interval: str, session: Session) -> list[int]:
+    """Unix time each daily, weekly, or monthly bar closes(d): the regular close of its last trading day.
+
+    No holiday calendar: a week's bar is assumed to close on Friday (Sunday for crypto).
+    """
+    local = (index if index.tz is not None else index.tz_localize("UTC")).tz_convert(session.tz)
+    whole_day = session.end >= time(23, 59)  # Yahoo marks 24h markets as closing at 23:59
+    out = []
+    for ts in local:
+        last = ts.date()
+        if interval == "1wk":
+            last += timedelta(days=6 if session.seven_day else 4)
+        elif interval == "1mo":
+            last = (pd.Timestamp(last) + pd.offsets.MonthEnd(0)).date()
+            while not session.seven_day and last.weekday() >= 5:
+                last -= timedelta(days=1)
+        moment = datetime.combine(last + timedelta(days=1), time(0)) if whole_day else datetime.combine(last, session.end)
+        out.append(int(pd.Timestamp(moment).tz_localize(session.tz, ambiguous=True, nonexistent="shift_forward").timestamp()))
+    return out
 
 
 def shape_chart(
@@ -181,10 +307,13 @@ def shape_chart(
     df: pd.DataFrame | None,
     currency: str | None,
     visible_start: pd.Timestamp | None,
+    meta: dict | None = None,
+    conversion: dict | None = None,
 ) -> dict:
     if df is None or df.empty or "Close" not in df.columns:
         raise NotFound(f"No chart data for {ticker.input}")
 
+    meta = meta or {}
     df = df.dropna(subset=["Close"])
     index = df.index if df.index.tz is not None else df.index.tz_localize("UTC")
     close = df["Close"]
@@ -202,8 +331,27 @@ def shape_chart(
     if visible_start is not None:
         bars = bars[bars.index >= visible_start]
 
-    candles = [{"time": int(ts.timestamp()), **row} for ts, row in zip(bars.index, bars.to_dict("records"))]
-    return {"symbol": ticker.symbol, "currency": currency, "range": rng, "interval": interval, "candles": candles}
+    session = session_from_meta(meta)
+    closes: list[int | None] = (
+        close_times(bars.index, interval, session) if session and interval not in INTRADAY else [None] * len(bars)
+    )
+    candles = [
+        {"time": int(ts.timestamp()), **row, "close_time": close_at}
+        for ts, row, close_at in zip(bars.index, bars.to_dict("records"), closes)
+    ]
+    converted = bool(conversion and conversion["converted"])
+    return {
+        "symbol": ticker.symbol,
+        "currency": "PHP" if converted else currency,
+        "native_currency": currency,
+        "converted": converted,
+        "conversion_note": conversion["note"] if conversion else None,
+        "range": rng,
+        "interval": interval,
+        "timezone": session.tz if session else None,
+        "last_trade": _to_timestamp(meta.get("regularMarketTime")),
+        "candles": candles,
+    }
 
 
 # --- WEI ---------------------------------------------------------------------

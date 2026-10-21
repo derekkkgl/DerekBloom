@@ -29,19 +29,26 @@ def chart(
     ticker: str,
     range_: yahoo.Range = Query("1y", alias="range"),
     interval: yahoo.Interval = "1d",
+    currency: yahoo.Currency = "native",
     format: Format = "json",
 ) -> dict | Response:
-    """OHLCV candles with SMA 20/50/200. `time` is Unix seconds."""
+    """OHLCV candles with SMA 20/50/200. `time` and `close_time` are Unix seconds.
+
+    `currency=PHP` converts USD prices bar by bar at the USD/PHP rate of each bar's own time.
+    """
     t = resolve(ticker)
     yahoo.validate_chart_params(range_, interval)
     ttl = INTRADAY_TTL if interval in yahoo.INTRADAY else DAILY_TTL
     now = datetime.now(timezone.utc)
     result = cache.get_or_fetch(
-        f"chart:{t.symbol}:{range_}:{interval}", ttl, lambda: yahoo.get_chart(t, range_, interval, now)
+        f"chart:{t.symbol}:{range_}:{interval}:{currency}",
+        ttl,
+        lambda: yahoo.get_chart(t, range_, interval, now, currency),
     )
     body = ok(result.value, "yahoo", result)
     if format == "csv":
-        return csv_response(body["data"]["candles"], body["meta"], f"{t.symbol}_{range_}_{interval}")
+        suffix = "_PHP" if body["data"]["converted"] else ""
+        return csv_response(body["data"]["candles"], body["meta"], f"{t.symbol}_{range_}_{interval}{suffix}")
     return body
 
 

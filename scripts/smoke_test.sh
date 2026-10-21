@@ -63,6 +63,9 @@ check 200 "/api/chart/NVDA?range=6mo&format=csv" csv
 check 200 "/api/chart/NVDA?range=1d&interval=5m"
 check 200 "/api/chart/BTC?range=5y&interval=1wk"
 check 200 "/api/chart/ETH?range=max&interval=1mo"
+check 200 "/api/chart/BTC?range=1y&currency=PHP"
+check 200 "/api/chart/NVDA?range=1d&interval=5m&currency=PHP"
+check 200 "/api/chart/7203.T?range=1y&currency=PHP"
 
 check 200 "/api/quotes?symbols=AAPL,NVDA,MSFT,GOOGL,AMZN,VOO,QQQ,VT"
 check 200 "/api/quotes?symbols=AAPL,NVDA,VOO&format=csv" csv
@@ -75,6 +78,7 @@ check 400 "/api/quote/BAD%24"
 check 404 /api/quote/ZZZZNOTREAL
 check 400 "/api/chart/NVDA?range=1y&interval=1m"
 check 400 "/api/quotes?symbols="
+check 400 "/api/chart/NVDA?currency=EUR"
 check 404 /api/des/ZZZZNOTREAL
 
 echo
