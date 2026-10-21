@@ -102,9 +102,10 @@ Done when: the shell loads with the masthead and the real ticker tape, every sec
 `WEI`, `CRYPTO`, `GP` (core chart: candles, volume, SMA 20/50/200, ranges), `DES` (stocks and coins), `N`, `HELP` wired to the API, Home front page wired to live data, `start.sh`, README with setup steps and a screenshot.
 Done when: `./start.sh` starts everything, `BTC GP` and `NVDA GP` draw real candlestick charts, `ETH DES` shows supply and all-time high, and the repo is pushed. **This is v1. Celebrate it.**
 
-**Phase 4: Portfolio, PHP, and goal**
-SQLite schema and migrations in `sql/`, transactions with fees, CSV import, global PHP toggle, `PORT`, `TXN`, `YLD`, `GOAL`, Excel export on every table.
-Done when: Derek enters his real holdings and sees value and P&L in PHP and months to his income goal.
+**Phase 4: Portfolio, PHP, and goal** (split in two)
+- **4a (done):** SQLite schema and migrations in `sql/`, transactions with fees, spreads, and FX costs (peso cost from each account's deposit rate), global PHP toggle on portfolio totals, `PORT`, `TXN` (manual entry), `YLD` (with dividend withholding), `GOAL`, Excel export on every table.
+  Done when: Derek enters his real holdings by hand and sees value and P&L in PHP and months to his income goal.
+- **4b:** CSV import from exchange and broker exports (Coins.ph, Binance, Gotrade), one importer at a time: pick the file and source, preview each row as New, Duplicate, or Error, then import. The `source` and `source_hash` columns are already in the schema.
 
 **Phase 5: Crypto depth and global breadth**
 `XGLB`, `XMOV`, `XSEC`, `DEFI`, `WMAP`, `MOST`, `MOV`, `IMAP`, `FX`, `CMDTY`, `GC`, `RATES`, `ECO`. FRED key in `.env`.
