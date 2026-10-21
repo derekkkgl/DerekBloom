@@ -7,5 +7,6 @@ export const WEI: TerminalFunction = {
   description: "Global stock indices by region with day and YTD change, plus BTC, gold, oil, the dollar, and US yields.",
   needsTicker: false,
   section: "markets",
+  group: "world",
   component: WorldIndices,
 };
