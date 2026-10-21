@@ -21,7 +21,7 @@ def coin(id_, symbol, price, cap, **extra):
 
 
 USD = [coin("bitcoin", "btc", 100.0, 1000, spark=True), coin("newcoin", "new", 0.5, 5, rank=2)]
-PHP = [coin("bitcoin", "btc", 6300.0, 63000)]  # newcoin missing from the PHP list
+PHP = [coin("bitcoin", "btc", 6300.0, 63000, spark=True)]  # newcoin missing from the PHP list
 
 
 @pytest.fixture
@@ -41,12 +41,20 @@ def fake_markets(monkeypatch):
 def test_markets_merge_usd_and_php(client, fake_markets):
     body = client.get("/api/crypto/markets").json()
     btc, new = body["data"]["coins"]
-    assert fake_markets["calls"] == [("usd", True), ("php", False)]
+    assert fake_markets["calls"] == [("usd", True), ("php", True)]
     assert (btc["symbol"], btc["price_usd"], btc["price_php"], btc["market_cap_php"]) == ("BTC", 100.0, 6300.0, 63000)
-    assert btc["sparkline_7d"] == [1.0, 2.0]
+    assert btc["sparkline_7d"] == [1.0, 2.0] and btc["sparkline_7d_php"] == [1.0, 2.0]
     assert btc["change_24h_pct"] is None
-    assert (new["price_php"], new["market_cap_php"], new["sparkline_7d"]) == (None, None, [])
+    assert (btc["change_1h_pct_php"], btc["change_7d_pct_php"], btc["volume_php"]) == (0.1, -3.0, 10)
+    assert (new["price_php"], new["market_cap_php"], new["sparkline_7d"], new["sparkline_7d_php"]) == (None, None, [], [])
+    assert new["change_24h_pct_php"] is None
     assert body["meta"]["source"] == "coingecko"
+
+
+def test_markets_ticker_only_for_aliased_coins(client, fake_markets):
+    btc, new = client.get("/api/crypto/markets").json()["data"]["coins"]
+    assert btc["ticker"] == "BTC"
+    assert new["ticker"] is None
 
 
 def test_rate_limit_serves_stale_copy(client, fake_markets):
@@ -82,8 +90,8 @@ def test_empty_response_is_an_error():
 
 def test_markets_csv_drops_sparkline(client, fake_markets):
     header = client.get("/api/crypto/markets?format=csv").text.splitlines()[0]
-    assert "sparkline_7d" not in header
-    assert header.startswith("id,symbol,name,rank,price_usd,price_php")
+    assert "sparkline" not in header
+    assert header.startswith("id,ticker,symbol,name,rank,price_usd,price_php")
 
 
 GLOBAL = {

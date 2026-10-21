@@ -31,6 +31,7 @@ ALIASES: dict[str, Alias] = {
 
 # Typing the Yahoo symbol directly (BTC-USD) should resolve the same way as the alias.
 _BY_SYMBOL = {alias.symbol: alias for alias in ALIASES.values()}
+_BY_COINGECKO_ID = {alias.coingecko_id: name for name, alias in ALIASES.items() if alias.coingecko_id}
 
 
 @dataclass(frozen=True)
@@ -50,3 +51,8 @@ def resolve(raw: str) -> Ticker:
     if alias:
         return Ticker(text, alias.symbol, alias.coingecko_id)
     return Ticker(text, text, None)
+
+
+def alias_for_coin(coingecko_id: str | None) -> str | None:
+    """The short ticker for a CoinGecko id ("bitcoin" -> "BTC"), or None if the coin has no alias yet."""
+    return _BY_COINGECKO_ID.get(coingecko_id) if coingecko_id else None

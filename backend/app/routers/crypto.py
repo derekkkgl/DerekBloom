@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Response
 
-from app.core.cache import cache
+from app.core.cache import CacheResult, cache
 from app.core.envelope import Format, csv_response, ok
 from app.services import coingecko
 
@@ -10,13 +10,18 @@ MARKETS_TTL = 120
 GLOBAL_TTL = 300
 
 
+def load_markets() -> CacheResult:
+    """The top-100 list. Shared by CRYPTO, Home, and coin DES so they cost one CoinGecko call between them."""
+    return cache.get_or_fetch("crypto:markets", MARKETS_TTL, coingecko.get_markets)
+
+
 @router.get("/markets", response_model=None)
 def markets(format: Format = "json") -> dict | Response:
-    """Top 100 coins by market cap, priced in USD and PHP, with a 7-day sparkline."""
-    result = cache.get_or_fetch("crypto:markets", MARKETS_TTL, coingecko.get_markets)
+    """Top 100 coins by market cap, priced in USD and PHP, with 7-day sparklines in both."""
+    result = load_markets()
     body = ok({"coins": result.value}, "coingecko", result)
     if format == "csv":
-        rows = [{k: v for k, v in coin.items() if k != "sparkline_7d"} for coin in body["data"]["coins"]]
+        rows = [{k: v for k, v in coin.items() if not k.startswith("sparkline")} for coin in body["data"]["coins"]]
         return csv_response(rows, body["meta"], "crypto_markets")
     return body
 

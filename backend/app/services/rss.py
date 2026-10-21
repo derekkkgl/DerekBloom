@@ -3,7 +3,6 @@
 fetch_feed only downloads bytes. shape_feed and merge_items are pure.
 """
 
-import html
 import re
 from calendar import timegm
 from dataclasses import dataclass
@@ -14,6 +13,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 import feedparser
 import requests
 
+from app.core.clean import strip_html
 from app.core.errors import ApiError, UpstreamError
 
 Category = Literal["markets", "crypto"]
@@ -63,7 +63,7 @@ def shape_feed(feed: Feed, content: bytes) -> list[dict]:
 
     items = []
     for entry in parsed.entries:
-        title = _text(entry.get("title"))
+        title = strip_html(entry.get("title"))
         url = entry.get("link")
         if not title or not url:
             continue
@@ -74,7 +74,7 @@ def shape_feed(feed: Feed, content: bytes) -> list[dict]:
                 "source": feed.name,
                 "category": feed.category,
                 "published": _published(entry),
-                "summary": _text(entry.get("summary"))[:SUMMARY_CHARS] or None,
+                "summary": strip_html(entry.get("summary"))[:SUMMARY_CHARS] or None,
             }
         )
     return items
@@ -98,13 +98,6 @@ def merge_items(item_lists: list[list[dict]], limit: int) -> list[dict]:
         if len(merged) == limit:
             break
     return merged
-
-
-def _text(value: str | None) -> str:
-    """Strip HTML tags and entities, collapse whitespace."""
-    if not value:
-        return ""
-    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", value))).strip()
 
 
 def _published(entry: dict) -> datetime | None:

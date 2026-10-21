@@ -9,7 +9,9 @@ Standard JSON supports neither, so every response passes through clean():
     dict / list / tuple / Series    -> cleaned recursively
 """
 
+import html
 import math
+import re
 from datetime import date, datetime
 from typing import Any
 
@@ -44,3 +46,10 @@ def clean(value: Any) -> Any:
     if isinstance(value, date):
         return value.isoformat()
     return value
+
+
+def strip_html(value: str | None) -> str:
+    """Plain text from an HTML snippet: tags and entities removed, whitespace collapsed."""
+    if not value:
+        return ""
+    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", value))).strip()

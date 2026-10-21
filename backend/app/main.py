@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.errors import ApiError
-from app.routers import crypto, markets, news, security, system
+from app.routers import crypto, des, markets, news, security, system
 from app.routers.system import VERSION
 
 log = logging.getLogger("terminal")
@@ -60,5 +60,6 @@ def handle_unexpected(_: Request, exc: Exception) -> JSONResponse:
 app.include_router(system.router)
 app.include_router(markets.router)
 app.include_router(security.router)
+app.include_router(des.router)
 app.include_router(news.router)
 app.include_router(crypto.router)

@@ -1,7 +1,7 @@
 import pytest
 
 from app.core.errors import BadRequest
-from app.core.tickers import resolve
+from app.core.tickers import alias_for_coin, resolve
 
 
 @pytest.mark.parametrize(
@@ -30,3 +30,10 @@ def test_resolve(raw, symbol, coingecko_id):
 def test_rejects_invalid(raw):
     with pytest.raises(BadRequest):
         resolve(raw)
+
+
+def test_alias_for_coin():
+    assert alias_for_coin("bitcoin") == "BTC"
+    assert alias_for_coin("ripple") == "XRP"
+    assert alias_for_coin("some-new-coin") is None
+    assert alias_for_coin(None) is None
