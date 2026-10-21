@@ -73,7 +73,7 @@ def delete_transaction(tx_id: int, conn: Db) -> dict:
 
 @router.get("/accounts", response_model=None)
 def list_accounts(conn: Db, format: Format = "json") -> dict | Response:
-    """Each account with its dollar deposits, average deposit rate, and the cash you typed in."""
+    """Each account with the cash you typed in."""
     cash = [dict(r) for r in conn.execute(query("cash_list"))]
     accounts = [
         {**dict(r), "cash": [{"currency": c["currency"], "amount": c["amount"]} for c in cash if c["account_id"] == r["id"]]}
@@ -111,9 +111,9 @@ def set_cash(account_id: int, body: CashIn, conn: Db) -> dict:
 
 @router.get("/portfolio", response_model=None)
 def get_portfolio(conn: Db, currency: Currency = "PHP", format: Format = "json") -> dict | Response:
-    """Holdings at average cost, valued with Yahoo prices, plus cash, allocation, and FX cost per account.
+    """Holdings at average cost, valued with Yahoo prices, plus cash and allocation.
 
-    PHP values use today's USD/PHP; costs use the peso rate of each trade (see costbasis.py).
+    PHP values use today's USD/PHP; costs use USD/PHP on each trade date (see costbasis.py).
     """
     snap = build_snapshot(conn, txn.manila_today())
     body = ok(portfolio_view(snap, currency), "yahoo", snap.result)

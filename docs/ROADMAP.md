@@ -71,7 +71,7 @@ Works for US and international listings (Yahoo suffixes) unless noted.
 
 | Mnemonic | Function | Notes | Phase |
 | --- | --- | --- | --- |
-| `PORT` | Portfolio | Holdings from transactions, cost basis including fees, spreads, and FX costs, market value, unrealized and realized P&L, allocation by asset class (crypto, stocks, ETFs, cash), region, and currency, all viewable in PHP | 4 |
+| `PORT` | Portfolio | Holdings from transactions, cost basis including trading fees, market value, unrealized and realized P&L, allocation by asset class (crypto, stocks, ETFs, cash), region, and currency, all viewable in PHP | 4 |
 | `PORT` risk tab | Risk | Volatility, max drawdown, beta vs a benchmark, correlation of holdings, crypto share of portfolio | 6 |
 | `TXN` | Transactions | Add, edit, delete buys, sells, dividends, deposits, transfers; CSV import from exchange and broker exports | 4 |
 | `GOAL` | Income goal | Target monthly income (default ₱2,000), current yield of holdings, capital needed at an assumed yield, months to goal at a monthly contribution, projected path chart | 4 |
@@ -103,7 +103,7 @@ Done when: the shell loads with the masthead and the real ticker tape, every sec
 Done when: `./start.sh` starts everything, `BTC GP` and `NVDA GP` draw real candlestick charts, `ETH DES` shows supply and all-time high, and the repo is pushed. **This is v1. Celebrate it.**
 
 **Phase 4: Portfolio, PHP, and goal** (split in two)
-- **4a (done):** SQLite schema and migrations in `sql/`, transactions with fees, spreads, and FX costs (peso cost from each account's deposit rate), global PHP toggle on portfolio totals, `PORT`, `TXN` (manual entry), `YLD` (with dividend withholding), `GOAL`, Excel export on every table.
+- **4a (done):** SQLite schema and migrations in `sql/`, transactions with trading fees in cost basis (peso cost at Yahoo's USD/PHP on the trade date; spreads and FX costs not tracked, Derek's choice), global PHP toggle on portfolio totals, `PORT`, `TXN` (manual entry), `YLD` (with dividend withholding), `GOAL`, Excel export on every table.
   Done when: Derek enters his real holdings by hand and sees value and P&L in PHP and months to his income goal.
 - **4b:** CSV import from exchange and broker exports (Coins.ph, Binance, Gotrade), one importer at a time: pick the file and source, preview each row as New, Duplicate, or Error, then import. The `source` and `source_hash` columns are already in the schema.
 

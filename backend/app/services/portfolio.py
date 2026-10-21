@@ -19,7 +19,7 @@ from app.core.cache import CacheResult, cache
 from app.core.errors import UpstreamError
 from app.db.connection import query
 from app.services import yahoo
-from app.services.costbasis import DOLLARS, Book, DepositRates, Tx, replay
+from app.services.costbasis import DOLLARS, Book, Tx, replay
 
 Currency = Literal["PHP", "USD"]
 
@@ -103,7 +103,6 @@ class Snapshot:
     assets: dict[str, dict]
     cash: list[dict]
     accounts: list[dict]
-    dollar_deposits: list[dict]
     result: CacheResult  # the Yahoo download, for the response's meta
     warnings: list[str] = field(default_factory=list)
 
@@ -127,7 +126,7 @@ def build_snapshot(conn: sqlite3.Connection, today: date) -> Snapshot:
         lambda: yahoo._call(lambda: yahoo.fetch_download(wanted, start, actions=True)),
     )
     history = History(result.value, symbols)
-    book = replay(txs, DepositRates(conn.execute(query("deposit_rates"))), history)
+    book = replay(txs, history)
     return Snapshot(
         today=today,
         book=book,
@@ -135,7 +134,6 @@ def build_snapshot(conn: sqlite3.Connection, today: date) -> Snapshot:
         assets=assets,
         cash=[dict(r) for r in conn.execute(query("cash_list"))],
         accounts=[dict(r) for r in conn.execute(query("accounts_list"))],
-        dollar_deposits=[dict(r) for r in conn.execute(query("dollar_deposits"))],
         result=result,
         warnings=list(book.warnings),
     )
@@ -181,7 +179,6 @@ def holding_rows(snap: Snapshot) -> list[dict]:
                 # The day's move at each day's own rate, so the peso's move counts too.
                 "day_change_usd": p.units * (last - prev) if last is not None and prev is not None else None,
                 "day_change_php": p.units * (last * rate_last - prev * rate_prev) if last is not None and prev is not None and rate_prev else None,
-                "yahoo_rate": p.yahoo_rate,
             }
         )
     return rows
@@ -196,27 +193,6 @@ def cash_rows(snap: Snapshot) -> list[dict]:
         php = c["amount"] if c["currency"] == "PHP" else c["amount"] * rate
         out.append({**c, "value_php": php, "value_usd": php / rate})
     return out
-
-
-def account_rows(snap: Snapshot) -> list[dict]:
-    """Deposits per account and the FX cost: pesos sent minus dollars received at Yahoo's rate that day."""
-    h = snap.history
-    fx_cost: dict[int, float] = {}
-    for d in snap.dollar_deposits:
-        at_market = d["units"] * h.usd_php(date.fromisoformat(d["trade_date"]))
-        fx_cost[d["account_id"]] = fx_cost.get(d["account_id"], 0.0) + d["php_amount"] - at_market
-    return [
-        {
-            "account_id": a["id"],
-            "account": a["name"],
-            "deposited_php": a["deposited_php"],
-            "received_usd": a["received_usd"],
-            "avg_rate": a["avg_rate"],
-            "fx_cost_php": fx_cost.get(a["id"]),
-            "fx_cost_pct": _pct(fx_cost.get(a["id"]), a["deposited_php"]),
-        }
-        for a in snap.accounts
-    ]
 
 
 def _allocation(items: list[tuple[str, float]], total: float) -> list[dict]:
@@ -263,7 +239,6 @@ def portfolio_view(snap: Snapshot, currency: Currency) -> dict:
                 "pnl_pct": _pct(pnl, row_cost),
                 "day_change": r[f"day_change_{c}"],
                 "weight_pct": _pct(value, total),
-                "yahoo_rate": r["yahoo_rate"],
             }
         )
 
@@ -293,7 +268,7 @@ def portfolio_view(snap: Snapshot, currency: Currency) -> dict:
         },
         "holdings": rows,
         "cash": [{**{k: v for k, v in r.items() if not k.startswith("value_")}, "value": r[f"value_{c}"]} for r in cash],
-        "accounts": account_rows(snap),
+        "accounts": [{"account_id": a["id"], "account": a["name"]} for a in snap.accounts],
         "allocation": {
             "class": _allocation(by_class, total),
             "region": _allocation(by_region, total),

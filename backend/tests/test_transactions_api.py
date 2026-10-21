@@ -30,7 +30,7 @@ def test_buy_is_saved_with_asset_from_yahoo(client, db, fake_info):
     assert r.status_code == 201
     saved = r.json()["data"]["transaction"]
     assert (saved["asset"], saved["account"], saved["units"], saved["fee"]) == ("VOO", "Gotrade", 1.0, 1.0)
-    assert saved["yahoo_rate"] is True and saved["peso_amount"] is None  # no Gotrade deposit yet
+    assert saved["peso_amount"] is None  # dollar trades get their peso cost on PORT, at Yahoo's rate
     asset = dict(db.execute("SELECT * FROM assets").fetchone())
     assert asset == {"asset": "VOO", "yahoo_symbol": "VOO", "name": "Vanguard S&P 500 ETF", "class": "etf",
                      "region": "United States", "currency": "USD"}
@@ -45,17 +45,17 @@ def test_alias_and_yahoo_symbol_are_the_same_holding(client):
     assert r.status_code == 201 and r.json()["data"]["transaction"]["asset"] == "BTC"
 
 
-def test_deposit_sets_peso_amount_of_later_buys(client):
-    assert post(client, type="DEPOSIT", asset="USD", units=100, price=None, php_amount=5_800).status_code == 201
-    saved = post(client, units=0.1, fee=1).json()["data"]["transaction"]
-    assert saved["deposit_rate"] == pytest.approx(58)
-    assert saved["peso_amount"] == pytest.approx(51 * 58) and saved["yahoo_rate"] is False
+def test_deposit_is_a_record_with_optional_pesos(client):
+    without = post(client, type="DEPOSIT", asset="USD", units=100, price=None).json()["data"]["transaction"]
+    assert without["php_amount"] is None and without["price"] is None
+    with_pesos = post(client, type="DEPOSIT", asset="USD", units=100, price=None, php_amount=5_800).json()["data"]["transaction"]
+    assert with_pesos["peso_amount"] == 5_800
 
 
 def test_coins_ph_buy_in_pesos(client):
     saved = post(client, account_id=1, asset="BTC", units=0.001, price=3_500_000, price_currency="PHP", fee=35)
     tx = saved.json()["data"]["transaction"]
-    assert tx["peso_amount"] == pytest.approx(3_535) and tx["yahoo_rate"] is False
+    assert tx["peso_amount"] == pytest.approx(3_535)
 
 
 def test_php_deposit_defaults_its_peso_amount(client):
@@ -66,7 +66,6 @@ def test_php_deposit_defaults_its_peso_amount(client):
 @pytest.mark.parametrize(
     "fields, message",
     [
-        ({"type": "DEPOSIT", "asset": "USD", "units": 100}, "pesos you sent"),
         ({"type": "DEPOSIT", "asset": "BTC", "units": 1}, "currency itself"),
         ({"asset": "USD"}, "is cash"),
         ({"price": None}, "price per unit"),
@@ -156,16 +155,12 @@ def test_list_is_newest_first_and_exports_csv(client):
     assert lines[0].startswith("id,trade_date,account_id,account,type,asset") and len(lines) == 3
 
 
-def test_accounts_with_deposits_and_cash(client):
-    post(client, type="DEPOSIT", asset="USD", units=100, price=None, php_amount=5_800, trade_date="2026-09-01")
-    post(client, type="DEPOSIT", asset="USD", units=100, price=None, php_amount=6_000)
+def test_accounts_with_cash(client):
     assert client.put("/api/accounts/1/cash", json={"currency": "PHP", "amount": 1_200}).status_code == 200
     assert client.put("/api/accounts/1/cash", json={"currency": "PHP", "amount": 1_500}).status_code == 200
     accounts = {a["name"]: a for a in client.get("/api/accounts").json()["data"]["accounts"]}
-    assert accounts["Gotrade"]["avg_rate"] == pytest.approx(59)
-    assert accounts["Gotrade"]["deposited_php"] == 11_800
     assert accounts["Coins.ph"]["cash"] == [{"currency": "PHP", "amount": 1_500}]
-    assert accounts["Binance"]["avg_rate"] is None
+    assert accounts["Binance"]["cash"] == []
 
     assert client.put("/api/accounts/9/cash", json={"currency": "PHP", "amount": 1}).status_code == 400
     assert client.put("/api/accounts/1/cash", json={"currency": "EUR", "amount": 1}).status_code == 400

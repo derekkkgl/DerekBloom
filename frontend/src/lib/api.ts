@@ -295,19 +295,12 @@ export type Transaction = TransactionInput & {
   id: number;
   account: string;
   source: string;
-  deposit_rate: number | null; // the account's average deposit rate on that date
-  peso_amount: number | null; // pesos paid or received, when the database alone can tell
-  yahoo_rate: boolean; // a dollar buy with no deposit before it: its peso cost uses Yahoo's rate
+  peso_amount: number | null; // pesos entered on a deposit, or a trade priced in pesos
 };
 
 export type Account = {
   id: number;
   name: string;
-  deposited_php: number;
-  received_usd: number;
-  avg_rate: number | null;
-  first_deposit: string | null;
-  last_deposit: string | null;
   cash: { currency: CashCurrency; amount: number }[];
 };
 
@@ -326,20 +319,9 @@ export type Holding = {
   pnl_pct: number | null;
   day_change: number | null;
   weight_pct: number | null;
-  yahoo_rate: boolean;
 };
 
 export type Slice = { label: string; value: number; pct: number | null };
-
-export type AccountFx = {
-  account_id: number;
-  account: string;
-  deposited_php: number;
-  received_usd: number;
-  avg_rate: number | null;
-  fx_cost_php: number | null;
-  fx_cost_pct: number | null;
-};
 
 export type Portfolio = {
   currency: "PHP" | "USD";
@@ -359,7 +341,7 @@ export type Portfolio = {
   };
   holdings: Holding[];
   cash: { account_id: number; account: string; currency: CashCurrency; amount: number; value: number }[];
-  accounts: AccountFx[];
+  accounts: { account_id: number; account: string }[];
   allocation: { class: Slice[]; region: Slice[]; currency: Slice[] };
   warnings: string[];
 };

@@ -1,8 +1,7 @@
 -- 001: portfolio, cash, yield inputs, and goal settings.
 -- STRICT tables reject a value of the wrong type instead of silently storing it.
 
--- Where money sits. Buys priced in USD or USDT get their peso cost from the
--- average rate of that account's deposits (see deposit_rates.sql).
+-- Where money sits.
 CREATE TABLE accounts (
     id   INTEGER PRIMARY KEY,
     name TEXT NOT NULL UNIQUE
@@ -18,7 +17,7 @@ INSERT INTO accounts (id, name) VALUES
 --   BUY, SELL, REWARD   units of the asset (BTC, VOO)
 --   TRANSFER            units moved between accounts; `fee` is the network fee, in units of the asset
 --   DEPOSIT, WITHDRAW   amount of the currency in `asset` (USD, USDT, PHP) received or taken out;
---                       php_amount is the pesos you sent (fees included) or got back
+--                       php_amount is the pesos you sent or got back (optional, a record only)
 --   DIVIDEND            cash received, in price_currency; `asset` is the ticker that paid it
 CREATE TABLE transactions (
     id             INTEGER PRIMARY KEY,

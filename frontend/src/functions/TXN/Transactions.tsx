@@ -38,9 +38,6 @@ const HEADINGS: [string, string][] = [
   ["", "w-[104px]"],
 ];
 
-const YAHOO_RATE_NOTE =
-  "No deposit was recorded in this account before this buy, so its peso cost uses Yahoo's USD/PHP close that day. Add the deposit that paid for it to use your real rate.";
-
 export function Transactions({ mnemonic, title }: FunctionScreenProps) {
   const list = useApi<{ transactions: Transaction[] }>("/api/transactions");
   const accounts = useApi<{ accounts: Account[] }>("/api/accounts");
@@ -91,8 +88,8 @@ export function Transactions({ mnemonic, title }: FunctionScreenProps) {
   return (
     <Panel title={title} mnemonic={mnemonic} meta={combineMeta(list.meta, accounts.meta)} actions={<CsvLink path="/api/transactions?format=csv" />}>
       <p className="mb-2 max-w-prose text-[13px] text-muted">
-        Every deposit, trade, and reward, newest first. For Gotrade and Binance, record each deposit with the pesos you sent: that
-        sets the peso cost of the buys it pays for. Coins.ph buys are priced in pesos.
+        Every trade, reward, and deposit, newest first. What matters is what you bought, how much, and at what price (plus any
+        fee). Dollar trades get their peso cost from Yahoo&apos;s USD/PHP on the trade date; Coins.ph buys are priced in pesos.
       </p>
       <UpdateFailed error={list.data ? list.error : null} />
       {!list.data || !accounts.data ? (
@@ -116,7 +113,7 @@ export function Transactions({ mnemonic, title }: FunctionScreenProps) {
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={HEADINGS.length} className="px-1.5 py-2 text-muted">
-                    No transactions yet. Start with a deposit, or a buy priced in pesos on Coins.ph.
+                    No transactions yet. Start with your first buy.
                   </td>
                 </tr>
               )}
@@ -181,7 +178,6 @@ function TxRow(props: {
   const { tx } = props;
   const fields = typeFields(tx.type);
   const feeIn = tx.fee_currency && tx.fee_currency !== tx.price_currency ? tx.fee_currency : null;
-  const depositRate = tx.type === "DEPOSIT" && tx.asset !== "PHP" && tx.php_amount ? tx.php_amount / tx.units : null;
 
   return (
     <tr
@@ -213,15 +209,8 @@ function TxRow(props: {
         )}
       </td>
       <td className="px-1.5 text-right">
-        {tx.yahoo_rate ? (
-          <span title={YAHOO_RATE_NOTE} className="micro-label cursor-help border-b border-dotted border-muted normal-case tracking-normal">
-            Yahoo rate
-          </span>
-        ) : tx.peso_amount !== null ? (
-          <>
-            <Num value={tx.peso_amount} decimals={0} currency="PHP" />
-            {depositRate !== null && <span className="ml-1 font-mono text-[11px] text-muted">@{depositRate.toFixed(2)}</span>}
-          </>
+        {tx.peso_amount !== null ? (
+          <Num value={tx.peso_amount} decimals={0} currency="PHP" />
         ) : (
           <span className="text-muted">—</span>
         )}
@@ -380,14 +369,14 @@ function EntryRow(props: {
             <TextInput
               {...common}
               inputMode="decimal"
-              aria-label={form.type === "DEPOSIT" ? "Pesos sent, fees included" : "Pesos received"}
-              placeholder={form.type === "DEPOSIT" ? "₱ sent" : "₱ received"}
+              aria-label={form.type === "DEPOSIT" ? "Pesos sent, optional" : "Pesos received, optional"}
+              placeholder={form.type === "DEPOSIT" ? "₱ sent (opt.)" : "₱ received (opt.)"}
               value={form.php_amount}
               onChange={(e) => set({ php_amount: e.target.value })}
               className="text-right"
             />
           ) : (
-            <span className="block text-right text-[11px] text-muted">{form.price_currency === "PHP" ? "price × units" : "from deposits"}</span>
+            <span className="block text-right text-[11px] text-muted">{form.price_currency === "PHP" ? "price × units" : "at Yahoo rate"}</span>
           )}
         </td>
         <td className="px-1.5 pb-1">

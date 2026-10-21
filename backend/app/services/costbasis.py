@@ -8,17 +8,15 @@ How each type moves a holding:
   REWARD    units in at zero cost (lowers the average cost)
   TRANSFER  the network fee (in units of the asset) leaves; the cost stays, so the average rises
   DIVIDEND  cash received, counted as income; units don't change
-  DEPOSIT, WITHDRAW  no effect on holdings (deposits set the account's peso rate, see deposit_rates.sql)
+  DEPOSIT, WITHDRAW  a record of money in and out; no effect on holdings
 
-Peso cost of a buy:
+Trading fees count in the cost. Peso amounts:
   priced in PHP (Coins.ph)    the pesos paid
-  priced in USD or USDT       dollars x that account's average deposit rate on or before the trade date,
-                              or Yahoo's USD/PHP close that day when there's no deposit yet (flagged)
-Sells and dividends are converted at Yahoo's USD/PHP close on their own date. Nothing in the
-past is ever converted at today's rate.
+  priced in USD or USDT       dollars x Yahoo's USD/PHP close on the trade date
+Exchange spreads and FX costs are not tracked (Derek's choice). Nothing in the past is
+ever converted at today's rate.
 """
 
-import bisect
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import date
@@ -70,22 +68,6 @@ class Prices(Protocol):
         ...
 
 
-class DepositRates:
-    """Each account's running average deposit rate, looked up by date."""
-
-    def __init__(self, rows: Iterable[Mapping[str, Any]]):
-        self._days: dict[int, list[date]] = {}
-        self._rates: dict[int, list[float]] = {}
-        for row in rows:  # deposit_rates.sql: ordered by account, date, id
-            self._days.setdefault(row["account_id"], []).append(date.fromisoformat(row["trade_date"]))
-            self._rates.setdefault(row["account_id"], []).append(row["avg_rate"])
-
-    def rate(self, account_id: int, day: date) -> float | None:
-        days = self._days.get(account_id, [])
-        i = bisect.bisect_right(days, day)  # deposits on the trade date itself count
-        return self._rates[account_id][i - 1] if i else None
-
-
 @dataclass
 class Position:
     asset: str
@@ -96,7 +78,6 @@ class Position:
     realized_usd: float = 0.0
     dividends_php: float = 0.0
     dividends_usd: float = 0.0
-    yahoo_rate: bool = False  # part of the peso cost used Yahoo's rate because the account had no deposit yet
 
     def add(self, units: float, php: float, usd: float) -> None:
         self.units += units
@@ -138,7 +119,7 @@ def _convert_cash(amount: float, src: str, dst: str, day: date, prices: Prices) 
     return php if dst == "PHP" else usd
 
 
-def replay(txs: Iterable[Tx], deposits: DepositRates, prices: Prices) -> Book:
+def replay(txs: Iterable[Tx], prices: Prices) -> Book:
     """Holdings after every transaction. `txs` must be in transactions_for_book.sql order."""
     book = Book()
     for tx in txs:
@@ -155,7 +136,7 @@ def replay(txs: Iterable[Tx], deposits: DepositRates, prices: Prices) -> Book:
             p.dividends_php += php
             p.dividends_usd += usd
         elif tx.type in ("BUY", "SELL"):
-            _trade(book, p, tx, deposits, prices)
+            _trade(book, p, tx, prices)
     return book
 
 
@@ -166,20 +147,13 @@ def _drop_units(p: Position, units: float) -> None:
         p.units = p.cost_php = p.cost_usd = 0.0
 
 
-def _trade(book: Book, p: Position, tx: Tx, deposits: DepositRates, prices: Prices) -> None:
+def _trade(book: Book, p: Position, tx: Tx, prices: Prices) -> None:
     day, currency = tx.trade_date, tx.price_currency
     gross = tx.units * (tx.price or 0.0)
     fee_native, fee_units = _fee(book, tx, prices)
 
     if tx.type == "BUY":
-        native = gross + fee_native
-        if currency == "PHP":
-            php, usd = native, native / prices.usd_php(day)
-        else:
-            rate = deposits.rate(tx.account_id, day)
-            if rate is None:
-                rate, p.yahoo_rate = prices.usd_php(day), True
-            php, usd = native * rate, native
+        php, usd = to_both(gross + fee_native, currency, day, prices)
         p.add(tx.units - fee_units, php, usd)
     else:
         php, usd = to_both(gross - fee_native, currency, day, prices)

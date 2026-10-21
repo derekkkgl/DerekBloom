@@ -61,18 +61,3 @@ def test_constraints_reject_bad_rows(db, column, value):
     row[column] = value
     with pytest.raises(sqlite3.IntegrityError):
         db.execute(query("transaction_insert"), row)
-
-
-def test_deposit_rates_run_and_reset_per_account(db):
-    deposits = [
-        (3, "2026-01-05", 100.0, 5_800.0),  # 58.00
-        (3, "2026-02-05", 100.0, 6_000.0),  # running 59.00
-        (2, "2026-01-10", 50.0, 3_000.0),  # Binance: 60.00
-    ]
-    for account, day, units, php in deposits:
-        db.execute(
-            "INSERT INTO transactions (account_id, trade_date, type, asset, units, php_amount) VALUES (?, ?, 'DEPOSIT', 'USD', ?, ?)",
-            (account, day, units, php),
-        )
-    rows = [(r["account_id"], r["trade_date"], round(r["avg_rate"], 4)) for r in db.execute(query("deposit_rates"))]
-    assert rows == [(2, "2026-01-10", 60.0), (3, "2026-01-05", 58.0), (3, "2026-02-05", 59.0)]

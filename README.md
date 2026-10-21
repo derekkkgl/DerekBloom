@@ -29,8 +29,8 @@ The paper is cream, ink, and serif headlines. Every screen opens from **Look up*
 | `NVDA DES`, `VOO DES`, `ETH DES` | Description | Stocks: key stats, valuation, profile. ETFs: fund facts. Coins: supply, all-time high and distance from it, links |
 | `N` | News wire | Markets and crypto headlines with All / Markets / Crypto tabs |
 | `HELP` | Function directory | Every function, how to type it, and the keyboard shortcuts |
-| `PORT` | Portfolio | Value, cost, unrealized and realized P&L, today's move, holdings at average cost, allocation by class, region, and currency, cash and FX cost per account |
-| `TXN` | Transactions | Add, edit, and delete deposits, buys, sells, dividends, rewards, and transfers |
+| `PORT` | Portfolio | Value, cost, unrealized and realized P&L, today's move, holdings at average cost, allocation by class, region, and currency, cash per account |
+| `TXN` | Transactions | Add, edit, and delete buys, sells, dividends, rewards, transfers, and deposits |
 | `YLD` | Cash-flow yield | Yearly and monthly income per holding in pesos, after dividend withholding |
 | `GOAL` | Income goal | Income now vs your monthly target, capital needed, months to goal, and the projected path |
 
@@ -42,11 +42,11 @@ A ticker alone (`NVDA`) opens its description. Up arrow in an empty Look up box 
 
 The Portfolio page holds `PORT` and `TXN`; the Goal page holds `GOAL` and `YLD`. Everything is stored in a local SQLite file, `backend/data/tape.db` (git-ignored, never leaves your Mac).
 
-**Entering transactions (TXN).** Type in the entry row above the table and press Enter. Pick the account first: the price currency follows it (Coins.ph: PHP, Binance: USDT, Gotrade: USD).
+**Entering transactions (TXN).** What matters is what you bought, how much, and at what price, plus any fee. Type in the entry row above the table and press Enter. Pick the account first: the price currency follows it (Coins.ph: PHP, Binance: USDT, Gotrade: USD).
 
 | Type | Units / amount | Also enter |
 | --- | --- | --- |
-| `DEPOSIT` | dollars or USDT received (asset `USD`, `USDT`, or `PHP`) | the pesos you sent, fees included |
+| `DEPOSIT` | dollars or USDT received (asset `USD`, `USDT`, or `PHP`) | the pesos you sent, optional (a record only) |
 | `BUY`, `SELL` | units of the asset (`BTC`, `VOO`) | price per unit, fee, and the fee's currency if different (`BNB`, or the coin itself) |
 | `REWARD` | units received (staking, interest paid in coins) | price on the day, optional |
 | `DIVIDEND` | cash received, after tax | its currency |
@@ -55,13 +55,13 @@ The Portfolio page holds `PORT` and `TXN`; the Goal page holds `GOAL` and `YLD`.
 
 Tab to a row, then ↑ ↓ to move, E to edit in place, Delete to remove (it asks first).
 
-**How peso cost works.** Average cost, with every fee in it.
+**How cost works.** Average cost: units × price plus the trading fee.
 
-- Gotrade and Binance buys get their peso cost from the account's **deposits**: pesos sent ÷ dollars received, averaged over every deposit up to the buy's date. A later deposit never changes an earlier buy. If there's no deposit yet, Yahoo's USD/PHP close for that day is used and the row is marked "Yahoo rate" (TXN) or † (PORT).
+- Dollar buys (Gotrade, Binance) convert to pesos at Yahoo's USD/PHP close on the trade date. Exchange spreads and FX fees aren't tracked.
 - Coins.ph buys are priced in pesos, so the pesos you paid are the cost.
 - A sell takes units out at average cost; the difference is realized P&L. A reward adds units at zero cost. A transfer's network fee removes units but keeps the cost. A fee paid in another coin (BNB) adds its value to the cost and comes out of your BNB.
 - Value in pesos uses today's USD/PHP. Past amounts are never converted at today's rate, so P&L in pesos includes the peso's own move.
-- **FX cost** per account (PORT) is the pesos you sent minus what Yahoo's rate said they were worth that day: your spread and transfer fees, visible.
+- Deposits and withdrawals are a record only; they don't change cost or holdings.
 - **Cash** is a balance you type per account on PORT. Buys and sells don't change it.
 
 **Yield and goal.** YLD counts, per holding, Yahoo's dividends from the last 12 months (less the withholding rate you set, 25% by default), or your `REWARD` rows from the last 12 months, or a staking or interest rate you type. GOAL shows that as **income now**, and next to it a hypothetical **if converted** figure (everything you hold at your assumed yield). Months to goal grows your income-producing capital (or everything, with the toggle) at the assumed yield plus your monthly contribution until it can pay the target. Target, contribution, and yield start at ₱2,000, ₱2,000, and 5%, and you change them on the page.
@@ -83,9 +83,9 @@ The portfolio holds USD-priced listings (US stocks and ETFs, and crypto) for now
 | `GET /api/news?category=all\|markets\|crypto&limit=50` | Deduplicated headlines, newest first | RSS | 5 min per feed |
 | `GET /api/crypto/markets` | Top 100 coins in USD and PHP, 1h/24h/7d change, sparklines | CoinGecko | 2 min |
 | `GET /api/crypto/global` | Total crypto market cap and volume (USD, PHP), BTC and ETH dominance | CoinGecko | 5 min |
-| `GET /api/transactions` · `POST` · `PUT /{id}` · `DELETE /{id}` | Your transactions, newest first, with peso amounts from deposit rates | local | none |
-| `GET /api/accounts` · `PUT /api/accounts/{id}/cash` | Accounts with deposits, average deposit rate, and cash | local | none |
-| `GET /api/portfolio?currency=PHP\|USD` | Totals, holdings, allocation, cash, FX cost per account | Yahoo + local | 60 s prices |
+| `GET /api/transactions` · `POST` · `PUT /{id}` · `DELETE /{id}` | Your transactions, newest first | local | none |
+| `GET /api/accounts` · `PUT /api/accounts/{id}/cash` | Accounts and the cash you typed in | local | none |
+| `GET /api/portfolio?currency=PHP\|USD` | Totals, holdings, allocation, cash | Yahoo + local | 60 s prices |
 | `GET /api/yield` · `PUT`/`DELETE /api/yield/{asset}` | Income per holding in pesos; set or clear a staking or interest rate | Yahoo + local | 60 s prices |
 | `GET /api/goal` | Income now, capital needed, months to goal, month-by-month projection | Yahoo + local | 60 s prices |
 | `GET /api/settings` · `PUT` | Goal target, contribution, assumed yield, withholding, include-everything toggle | local | none |
@@ -96,7 +96,7 @@ Every response looks like `{"data": ..., "meta": {"source", "as_of", "cached", "
 
 **Excel:** add `?format=csv` to `/api/wei`, `/api/quotes`, `/api/chart/...`, `/api/news`, `/api/crypto/markets`, `/api/transactions`, `/api/accounts`, `/api/portfolio`, `/api/yield`, or `/api/goal`, then in Excel use Data → From Web and paste the URL. Each portfolio table also has a **CSV** link in its header.
 
-**SQL:** the schema is in `backend/sql/migrations/` and every query the app runs is a `.sql` file in `backend/sql/queries/`. Open `backend/data/tape.db` in any SQLite tool (`sqlite3 backend/data/tape.db`) and run them yourself; `deposit_rates.sql` and `running_units.sql` use window functions.
+**SQL:** the schema is in `backend/sql/migrations/` and every query the app runs is a `.sql` file in `backend/sql/queries/`. Open `backend/data/tape.db` in any SQLite tool (`sqlite3 backend/data/tape.db`) and run them yourself; `running_units.sql` uses a window function.
 
 ## Setup
 
@@ -169,7 +169,7 @@ backend/app/main.py        FastAPI app, CORS, error envelope
 backend/app/core/          cache, clean (NaN -> null), tickers + aliases, WEI rows + market hours
 backend/app/db/            SQLite connection, .sql query loader, migrations runner
 backend/app/services/      yahoo.py, coingecko.py, rss.py (fetchers + pure shapers)
-backend/app/services/costbasis.py  the cost engine: average cost, deposit-rate peso cost, fees, rewards
+backend/app/services/costbasis.py  the cost engine: average cost, fees, rewards, transfers
 backend/app/services/portfolio.py  PORT and YLD numbers; goal.py: GOAL math
 backend/sql/migrations/    schema, one numbered file per change
 backend/sql/queries/       every query the app runs, one per file

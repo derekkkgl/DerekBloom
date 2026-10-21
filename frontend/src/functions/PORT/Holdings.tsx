@@ -30,9 +30,6 @@ const HEADINGS: [string, boolean][] = [
   ["Weight", true],
 ];
 
-const YAHOO_RATE_NOTE =
-  "Part of this cost uses Yahoo's USD/PHP close on the buy date, because no deposit was recorded in that account before the buy.";
-
 export function Holdings({ mnemonic, title }: FunctionScreenProps) {
   const [currency] = useDisplayCurrency();
   const port = useApi<Portfolio>(`/api/portfolio?currency=${currency}`, PORTFOLIO_POLL_MS);
@@ -107,7 +104,7 @@ function HoldingsTable({ p }: { p: Portfolio }) {
   const totalCost = sum((h) => h.cost);
 
   if (p.holdings.length === 0) {
-    return <p className="border-t border-ink py-2 text-[13px] text-muted">No holdings yet. Add a deposit and your first buy in TXN below.</p>;
+    return <p className="border-t border-ink py-2 text-[13px] text-muted">No holdings yet. Add your first buy in TXN below.</p>;
   }
   return (
     <div className="overflow-x-auto">
@@ -136,11 +133,6 @@ function HoldingsTable({ p }: { p: Portfolio }) {
                 <td className="px-1.5 text-right"><Num value={h.units} decimals={unitDecimals(h.units)} /></td>
                 <td className="px-1.5 text-right">
                   <Num value={h.avg_cost} decimals={priceDecimals(h.asset, h.avg_cost)} currency={cur} />
-                  {h.yahoo_rate && (
-                    <sup title={YAHOO_RATE_NOTE} className="ml-0.5 cursor-help font-mono text-muted">
-                      †<span className="sr-only">{YAHOO_RATE_NOTE}</span>
-                    </sup>
-                  )}
                 </td>
                 <td className="px-1.5 text-right"><Num value={h.price} decimals={priceDecimals(h.asset, h.price)} currency={cur} /></td>
                 <td className="px-1.5 text-right"><Num value={h.value} decimals={d} currency={cur} /></td>
@@ -214,18 +206,15 @@ function Accounts({ p }: { p: Portfolio }) {
 
   return (
     <div className="mt-4">
-      <h3 className="micro-label border-b border-ink pb-1">Accounts and cash</h3>
+      <h3 className="micro-label border-b border-ink pb-1">Cash</h3>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] text-[13px]">
+        <table className="w-full min-w-[480px] text-[13px]">
           <thead>
             <tr className="border-b border-hairline">
               <th scope="col" className="micro-label px-1.5 py-1 text-left font-normal">Account</th>
               {CASH_CURRENCIES.map((c) => (
                 <th key={c} scope="col" className="micro-label w-28 px-1.5 py-1 text-right font-normal">Cash {c}</th>
               ))}
-              <th scope="col" className="micro-label px-1.5 py-1 text-right font-normal">Deposited</th>
-              <th scope="col" className="micro-label px-1.5 py-1 text-right font-normal">Avg rate</th>
-              <th scope="col" className="micro-label px-1.5 py-1 text-right font-normal">FX cost</th>
             </tr>
           </thead>
           <tbody>
@@ -243,26 +232,13 @@ function Accounts({ p }: { p: Portfolio }) {
                     />
                   </td>
                 ))}
-                <td className="px-1.5 text-right">{a.deposited_php ? <Num value={a.deposited_php} decimals={0} currency="PHP" /> : <span className="text-muted">—</span>}</td>
-                <td className="px-1.5 text-right"><Num value={a.avg_rate} decimals={3} /></td>
-                <td className="px-1.5 text-right">
-                  {a.fx_cost_php !== null ? (
-                    <>
-                      <Num value={a.fx_cost_php} decimals={0} currency="PHP" />
-                      <span className="ml-1 font-mono text-[11px] text-muted">(<Num value={a.fx_cost_pct} percent decimals={2} />)</span>
-                    </>
-                  ) : (
-                    <span className="text-muted">—</span>
-                  )}
-                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <p className="mt-1 text-[11px] text-muted">
-        Cash is what you type here; buys and sells don&apos;t change it. Deposited, rate, and FX cost come from your USD and USDT
-        deposits: FX cost is the pesos you sent minus what Yahoo&apos;s USD/PHP said they were worth that day.
+        Cash is what you type here, per account; buys and sells don&apos;t change it.
       </p>
     </div>
   );
@@ -271,16 +247,14 @@ function Accounts({ p }: { p: Portfolio }) {
 // --- Footnotes -------------------------------------------------------------------
 
 function Notes({ p }: { p: Portfolio }) {
-  const anyYahoo = p.holdings.some((h) => h.yahoo_rate);
   return (
     <div className="mt-3 space-y-0.5 text-[11px] text-muted">
       <p>
         {p.currency === "PHP"
-          ? <>Values in pesos at USD/PHP <Num value={p.usd_php} decimals={3} /> (Yahoo, {formatDate(p.usd_php_date)}). Costs use the peso rate of each trade, so P&amp;L includes the peso&apos;s move.</>
+          ? <>Values in pesos at USD/PHP <Num value={p.usd_php} decimals={3} /> (Yahoo, {formatDate(p.usd_php_date)}). Costs include trading fees and use USD/PHP on each trade date, so P&amp;L includes the peso&apos;s move.</>
           : <>Values in dollars. A Coins.ph buy&apos;s dollar cost uses USD/PHP on its own trade date.</>}{" "}
         Prices are Yahoo&apos;s latest close; crypto is valued at Yahoo&apos;s USD price.
       </p>
-      {anyYahoo && <p>† {YAHOO_RATE_NOTE}</p>}
       {p.warnings.map((w) => (
         <p key={w} role="status" className="text-ink">{w}</p>
       ))}

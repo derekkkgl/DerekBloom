@@ -111,8 +111,6 @@ def normalize(conn: sqlite3.Connection, body: TransactionIn, today: date) -> dic
         row.update(price=None, price_currency=row["asset"], fee=0.0, fee_currency=None)
         if row["asset"] == "PHP":
             row["php_amount"] = body.php_amount if body.php_amount is not None else body.units
-        elif kind == "DEPOSIT" and not body.php_amount:
-            raise BadRequest("Enter the pesos you sent, fees included. That sets this account's USD/PHP rate.")
         return row
 
     row["asset"] = ensure_asset(conn, body.asset)
@@ -172,24 +170,19 @@ def check_units(conn: sqlite3.Connection, assets: set[str]) -> None:
 
 
 def list_view(row: sqlite3.Row) -> dict:
-    """A transactions_list.sql row plus its peso amount, when the database alone can say it.
-
-    yahoo_rate marks a dollar buy with no deposit before it: its peso cost uses Yahoo's rate.
+    """A transactions_list.sql row plus its peso amount, when the database alone can say it:
+    pesos entered on a deposit or withdrawal, or a trade priced in pesos. Dollar trades are
+    converted at Yahoo's rate on PORT, so they have none here.
     """
     out = dict(row)
-    out["peso_amount"], out["yahoo_rate"] = None, False
-    kind, currency = row["type"], row["price_currency"]
+    out["peso_amount"] = None
+    kind = row["type"]
 
     if kind in ("DEPOSIT", "WITHDRAW"):
         out["peso_amount"] = row["php_amount"]
-    elif kind in ("BUY", "SELL") and row["price"] is not None:
+    elif kind in ("BUY", "SELL") and row["price"] is not None and row["price_currency"] == "PHP":
         fee_currency = row["fee_currency"]
         if fee_currency is None or fee_currency == row["asset"]:
             fee = row["fee"] if fee_currency is None else 0.0
-            native = row["units"] * row["price"] + (fee if kind == "BUY" else -fee)
-            if currency == "PHP":
-                out["peso_amount"] = native
-            elif kind == "BUY" and row["deposit_rate"] is not None:
-                out["peso_amount"] = native * row["deposit_rate"]
-        out["yahoo_rate"] = kind == "BUY" and currency != "PHP" and row["deposit_rate"] is None
+            out["peso_amount"] = row["units"] * row["price"] + (fee if kind == "BUY" else -fee)
     return out

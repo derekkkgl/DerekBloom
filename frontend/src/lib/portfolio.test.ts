@@ -16,9 +16,7 @@ import {
   yieldSourceLabel,
 } from "./portfolio";
 
-const binance: Account = {
-  id: 2, name: "Binance", deposited_php: 0, received_usd: 0, avg_rate: null, first_deposit: null, last_deposit: null, cash: [],
-};
+const binance: Account = { id: 2, name: "Binance", cash: [] };
 
 describe("unitDecimals and moneyDecimals", () => {
   it("shows units exactly, up to satoshis", () => {
@@ -76,8 +74,7 @@ describe("entry form", () => {
   it("round-trips a saved transaction for editing", () => {
     const tx = {
       id: 7, account_id: 3, account: "Gotrade", trade_date: "2026-10-01", type: "BUY", asset: "VOO", units: 0.1, price: 500,
-      price_currency: "USD", fee: 0, fee_currency: null, php_amount: null, note: null, source: "manual", deposit_rate: 58,
-      peso_amount: 2900, yahoo_rate: false,
+      price_currency: "USD", fee: 0, fee_currency: null, php_amount: null, note: null, source: "manual", peso_amount: null,
     } satisfies Transaction;
     const form = formFromTransaction(tx);
     expect(form).toMatchObject({ units: "0.1", price: "500", fee: "", fee_currency: "", php_amount: "" });

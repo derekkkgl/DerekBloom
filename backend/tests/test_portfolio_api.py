@@ -64,7 +64,7 @@ def add(client, **fields):
 
 @pytest.fixture
 def book(client):
-    """Gotrade: $100 deposited for ₱5,850 (rate 58.50; Yahoo said 58), then 0.1 VOO at $500 + $1 fee.
+    """Gotrade: $100 deposited for ₱5,850 (a record only), then 0.1 VOO at $500 + $1 fee (Yahoo's rate: 58).
     Coins.ph: 0.001 BTC for ₱3,500,000/BTC + ₱35 fee, and ₱1,200 cash."""
     add(client, type="DEPOSIT", asset="USD", units=100, price=None, php_amount=5_850, trade_date="2026-01-05")
     add(client, fee=1)
@@ -85,17 +85,17 @@ def test_portfolio_in_pesos(client, book, fake_yahoo):
     assert fake_yahoo[-1][2] is True  # dividends requested
 
     voo, btc = (next(h for h in data["holdings"] if h["asset"] == a) for a in ("VOO", "BTC"))
-    assert voo["cost"] == pytest.approx(51 * 58.5)
+    assert voo["cost"] == pytest.approx(51 * 58)
     assert voo["value"] == pytest.approx(0.1 * 510 * 60)
-    assert voo["pnl"] == pytest.approx(3_060 - 2_983.5)
-    assert voo["avg_cost"] == pytest.approx(29_835)
+    assert voo["pnl"] == pytest.approx(3_060 - 2_958)
+    assert voo["avg_cost"] == pytest.approx(29_580)
     assert voo["price"] == pytest.approx(510 * 60)
     assert voo["day_change"] == pytest.approx(0.1 * (510 - 500) * 60)
     assert btc["cost"] == pytest.approx(3_535) and btc["value"] == pytest.approx(3_660)
 
     assert totals["value"] == pytest.approx(3_060 + 3_660 + 1_200)
-    assert totals["cost"] == pytest.approx(2_983.5 + 3_535)
-    assert totals["unrealized"] == pytest.approx(6_720 - 6_518.5)
+    assert totals["cost"] == pytest.approx(2_958 + 3_535)
+    assert totals["unrealized"] == pytest.approx(6_720 - 6_493)
     assert totals["cash"] == 1_200
     assert voo["weight_pct"] == pytest.approx(3_060 / 7_920 * 100)
 
@@ -104,10 +104,7 @@ def test_portfolio_in_pesos(client, book, fake_yahoo):
     assert data["allocation"]["class"][0]["label"] == "Crypto"  # largest first
     currencies = {a["label"]: a["value"] for a in data["allocation"]["currency"]}
     assert currencies == {"USD": pytest.approx(6_720), "PHP": 1_200}
-
-    gotrade = next(a for a in data["accounts"] if a["account"] == "Gotrade")
-    assert gotrade["avg_rate"] == pytest.approx(58.5)
-    assert gotrade["fx_cost_php"] == pytest.approx(50)  # ₱5,850 sent for what Yahoo valued at ₱5,800
+    assert [a["account"] for a in data["accounts"]] == ["Coins.ph", "Binance", "Gotrade", "Manual"]
 
 
 def test_portfolio_in_dollars_uses_each_trade_days_rate(client, book):
