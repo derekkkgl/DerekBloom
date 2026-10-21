@@ -7,6 +7,8 @@ type PanelProps = {
   mnemonic?: string;
   ticker?: string;
   meta?: Meta | null;
+  /** Small links on the right of the header, such as the CSV export. */
+  actions?: ReactNode;
   className?: string;
   children: ReactNode;
 };
@@ -15,7 +17,7 @@ type PanelProps = {
  * A ruled section of the paper, never a card: a 1px ink rule on top, then a header bar.
  * Left: mnemonic and title. Right: ticker, data source, and last-updated time.
  */
-export function Panel({ title, mnemonic, ticker, meta, className = "", children }: PanelProps) {
+export function Panel({ title, mnemonic, ticker, meta, actions, className = "", children }: PanelProps) {
   return (
     <section className={`border-t border-ink ${className}`}>
       <header className="flex items-baseline justify-between gap-4 py-2">
@@ -28,6 +30,7 @@ export function Panel({ title, mnemonic, ticker, meta, className = "", children 
           {meta && <span className="uppercase">{meta.source}</span>}
           {meta && <span>{formatTime(meta.as_of)}</span>}
           {meta?.stale && <span className="font-sans uppercase tracking-wider text-ink">Stale</span>}
+          {actions}
         </div>
       </header>
       <div className="pb-3">{children}</div>

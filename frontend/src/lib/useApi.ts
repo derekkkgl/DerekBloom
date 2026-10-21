@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ApiError, apiGet, type Meta } from "./api";
 
-export type ApiState<T> = {
+type Result<T> = {
   data: T | null;
   meta: Meta | null;
   error: ApiError | null;
   loading: boolean; // true only until the first answer (data or error) arrives
+};
+
+export type ApiState<T> = Result<T> & {
+  reload: () => void; // fetch again now, e.g. after saving a change
 };
 
 const EMPTY = { data: null, meta: null, error: null, loading: true };
@@ -16,11 +20,13 @@ const IDLE = { data: null, meta: null, error: null, loading: false };
 /**
  * Fetch an API path and re-fetch it every `pollMs`. Pass null to fetch nothing (yet).
  * If a refresh fails, the last good data stays on screen next to the error,
- * so a blip never blanks the page and nothing is ever made up.
+ * so a blip never blanks the page and nothing is ever made up. reload() fetches again now.
  */
 export function useApi<T>(path: string | null, pollMs?: number): ApiState<T> {
   // Results are tagged with their path so a new path never shows the old path's data.
-  const [state, setState] = useState<ApiState<T> & { path: string | null }>({ ...EMPTY, path });
+  const [state, setState] = useState<Result<T> & { path: string | null }>({ ...EMPTY, path });
+  const [tick, setTick] = useState(0);
+  const reload = useCallback(() => setTick((t) => t + 1), []);
 
   useEffect(() => {
     if (path === null) return;
@@ -44,8 +50,8 @@ export function useApi<T>(path: string | null, pollMs?: number): ApiState<T> {
       controller.abort();
       clearInterval(timer);
     };
-  }, [path, pollMs]);
+  }, [path, pollMs, tick]);
 
-  if (path === null) return IDLE;
-  return state.path === path ? state : EMPTY;
+  if (path === null) return { ...IDLE, reload };
+  return state.path === path ? { ...state, reload } : { ...EMPTY, reload };
 }

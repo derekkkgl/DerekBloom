@@ -6,10 +6,10 @@ import type { Candle } from "@/lib/api";
 import { SMA_LINES, toSeries, type SmaKey } from "@/lib/chart";
 
 // Broadsheet colors (globals.css). Canvas drawing can't read Tailwind classes, so they're repeated here.
-const PAPER = "#F3EEE3";
-const INK = "#141414";
-const MUTED = "#5E5A52";
-const HAIRLINE = "rgba(20, 20, 20, 0.16)";
+export const PAPER = "#F3EEE3";
+export const INK = "#141414";
+export const MUTED = "#5E5A52";
+export const HAIRLINE = "rgba(20, 20, 20, 0.16)";
 const UP = "#166B30";
 const DOWN = "#B42318";
 

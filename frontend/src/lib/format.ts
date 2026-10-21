@@ -124,3 +124,15 @@ export function formatStamp(iso: string | null | undefined, now: Date = new Date
   if (Number.isNaN(date.getTime())) return MISSING;
   return date.toDateString() === now.toDateString() ? formatTime(iso) : formatDate(iso, { year: false });
 }
+
+/** Decimals that show a holding's units exactly, up to 8 (satoshis): 0.0015 -> 4, 2 -> 0. */
+export function unitDecimals(units: number | null | undefined): number {
+  if (typeof units !== "number" || !Number.isFinite(units)) return 0;
+  const fraction = Math.abs(units).toFixed(8).replace(/0+$/, "").split(".")[1] ?? "";
+  return fraction.length;
+}
+
+/** Decimals for money totals: whole pesos, dollars to the cent. */
+export function moneyDecimals(currency: string | null | undefined): number {
+  return currency === "PHP" ? 0 : 2;
+}
