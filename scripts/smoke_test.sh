@@ -78,6 +78,21 @@ check 200 "/api/defi/chains?format=csv" csv
 check 200 /api/defi/protocols
 check 200 "/api/defi/protocols?format=csv" csv
 
+# World markets (Phase 5b). A screener can be empty early in the session, so its CSV may have no rows.
+for screen in most-active gainers losers; do
+  check 200 "/api/screen/$screen"
+  check 200 "/api/screen/$screen?format=csv" csv-any
+done
+check 200 /api/fx
+check 200 "/api/fx?format=csv" csv
+check 200 /api/commodities
+check 200 "/api/commodities?format=csv" csv
+check 200 "/api/imap?symbols=AAPL,NVDA,VOO"
+check 200 "/api/imap?symbols=AAPL&format=csv" csv
+check 200 /api/imap
+check 200 /api/wmap
+check 200 "/api/wmap?format=csv" csv
+
 for t in "${TICKERS[@]}"; do
   check 200 "/api/quote/$t"
   check 200 "/api/chart/$t"
@@ -120,6 +135,8 @@ check 400 "/api/portfolio?currency=EUR"
 check 400 "/api/search?q=%20"
 check 400 "/api/crypto/movers?window=1y"
 check 400 "/api/crypto/fear-greed?days=0"
+check 400 /api/screen/penny-stocks
+check 400 "/api/imap?symbols=BAD%24"
 
 echo
 echo "$PASS passed, $FAIL failed"
