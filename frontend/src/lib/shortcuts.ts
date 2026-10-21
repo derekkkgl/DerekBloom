@@ -8,4 +8,9 @@ export const SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ["↑"], action: "In an empty box: step back through recent commands" },
   { keys: ["Esc"], action: "Close Look up" },
   { keys: ["Tab"], action: "Move between links, rows, and buttons on a page" },
+  { keys: ["↑", "↓"], action: "TXN: move between transactions (Tab to a row first)" },
+  { keys: ["E"], action: "TXN: edit the selected transaction in place" },
+  { keys: ["Delete"], action: "TXN: delete the selected transaction (asks first)" },
+  { keys: ["Enter"], action: "TXN, PORT cash, GOAL and YLD numbers: save what you typed" },
+  { keys: ["Esc"], action: "TXN: cancel an edit or a delete; in a number field, undo your typing" },
 ];

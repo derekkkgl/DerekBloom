@@ -8,10 +8,14 @@
 import type { ComponentType } from "react";
 import { CRYPTO } from "@/functions/CRYPTO";
 import { DES } from "@/functions/DES";
+import { GOAL } from "@/functions/GOAL";
 import { GP } from "@/functions/GP";
 import { HELP } from "@/functions/HELP";
 import { N } from "@/functions/N";
+import { PORT } from "@/functions/PORT";
+import { TXN } from "@/functions/TXN";
 import { WEI } from "@/functions/WEI";
+import { YLD } from "@/functions/YLD";
 import type { SectionId } from "./sections";
 
 /** What every screen receives. Screens draw their own Panel, so they get its header text too. */
@@ -26,7 +30,7 @@ export type TerminalFunction = {
   component: ComponentType<FunctionScreenProps>;
 };
 
-export const FUNCTIONS: TerminalFunction[] = [WEI, CRYPTO, DES, GP, N, HELP];
+export const FUNCTIONS: TerminalFunction[] = [WEI, CRYPTO, DES, GP, PORT, TXN, GOAL, YLD, N, HELP];
 
 export function getFunction(mnemonic: string): TerminalFunction | undefined {
   const wanted = mnemonic.toUpperCase();
