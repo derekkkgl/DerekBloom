@@ -95,7 +95,7 @@ Endpoints `/api/health`, `/api/wei`, `/api/quote/{ticker}`, `/api/chart/{ticker}
 Done when: tests pass, and the smoke test returns 200 for every endpoint with real data for AAPL, NVDA, VOO, 7203.T, BTC, ETH, and `PHP=X`.
 
 **Phase 2: Frontend shell**
-Next.js app in the Morning Broadsheet style (see CLAUDE.md): theme tokens (paper, ink, rules, up/down), fonts (Source Serif 4, Inter, JetBrains Mono), masthead with section navigation (Home, Markets, Portfolio, Goal, News) and the "Look up" box, `TAPE` under the masthead, `Panel` (a ruled section with a header bar), `Num`, formatters, command palette with function registry. Each section is a route. Home is laid out as the paper's front page, with its columns wired to real data in Phase 3; until then a section says what is coming instead of showing numbers.
+Next.js app in the Morning Broadsheet style (see CLAUDE.md): theme tokens (paper, ink, rules, up/down), fonts (Source Serif 4, Inter, JetBrains Mono), masthead with section navigation (Home, Markets, Portfolio, Goal, News) and the "Look up" box, `TAPE` under the masthead, `Panel` (a ruled section with a header bar), `Num`, formatters, command palette with function registry. Each section is a route. Home is laid out as the paper's front page, leading with US stocks and ETFs, crypto, and global indices (Philippine assets join in Phase 9), with its columns wired to real data in Phase 3; until then a section says what is coming instead of showing numbers.
 Done when: the shell loads with the masthead and the real ticker tape, every section link opens its page, and the palette opens with Cmd+K (or from "Look up") and lists registered functions.
 
 **Phase 3: Core screens (MVP)**
