@@ -18,7 +18,7 @@ from yfinance.exceptions import YFRateLimitError
 
 from app.core.errors import ApiError, BadRequest, NotFound, UpstreamError
 from app.core.markets import WEI_ROWS
-from app.core.tickers import Ticker
+from app.core.tickers import TICKER_RE, Ticker, alias_name
 
 T = TypeVar("T")
 
@@ -85,6 +85,11 @@ def fetch_history(symbol: str, interval: str, period: str | None = None, start: 
     ticker = yf.Ticker(symbol)
     df = ticker.history(period=period, start=start, interval=interval, auto_adjust=False)
     return df, ticker.get_history_metadata() or {}
+
+
+def fetch_search(query: str) -> list[dict]:
+    """Yahoo's ticker search, the same one behind the search box on finance.yahoo.com."""
+    return yf.Search(query, max_results=10, news_count=0, lists_count=0).quotes
 
 
 def fetch_download(symbols: list[str], start: date, actions: bool = False) -> pd.DataFrame:
@@ -442,6 +447,33 @@ def _quote_values(series: pd.Series | None) -> dict:
     if series.empty:
         return empty
     return {**_day_values(series), "closes": [float(v) for v in series.iloc[-SPARK_POINTS:]]}
+
+
+# --- Ticker search -----------------------------------------------------------
+
+
+def get_search(query: str) -> list[dict]:
+    return shape_search(_call(lambda: fetch_search(query)))
+
+
+def shape_search(quotes: list[dict] | None) -> list[dict]:
+    """Matches as {ticker, symbol, name, type, exchange}. `ticker` is what to type here:
+    the short alias for coins that have one (BTC-USD -> BTC), else Yahoo's symbol."""
+    out = []
+    for q in quotes or []:
+        symbol = str(q.get("symbol") or "").upper()
+        if not TICKER_RE.match(symbol):
+            continue
+        out.append(
+            {
+                "ticker": alias_name(symbol) or symbol,
+                "symbol": symbol,
+                "name": q.get("shortname") or q.get("longname"),
+                "type": q.get("quoteType"),
+                "exchange": q.get("exchDisp") or q.get("exchange"),
+            }
+        )
+    return out
 
 
 # --- Description (DES) -------------------------------------------------------

@@ -12,7 +12,7 @@ def tables(conn: sqlite3.Connection) -> set[str]:
 
 def test_first_connect_creates_the_schema(db):
     assert {"accounts", "transactions", "assets", "cash_balances", "yield_inputs", "settings", "schema_migrations"} <= tables(db)
-    assert [r["name"] for r in db.execute("SELECT name FROM accounts ORDER BY id")] == ["Coins.ph", "Binance", "Gotrade", "Manual"]
+    assert [r["name"] for r in db.execute("SELECT name FROM accounts ORDER BY id")] == ["Coins.ph", "Binance", "Gotrade", "No account"]
     settings = dict(db.execute(query("settings_get")).fetchone())
     assert settings == {
         "target_monthly_php": 2000.0,
@@ -25,7 +25,7 @@ def test_first_connect_creates_the_schema(db):
 
 def test_migrating_again_is_a_no_op(db):
     assert migrate(db, SQL_DIR / "migrations") == []
-    assert db.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0] == 1
+    assert db.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0] == 2
     assert db.execute("SELECT COUNT(*) FROM accounts").fetchone()[0] == 4
 
 

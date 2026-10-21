@@ -262,7 +262,7 @@ def portfolio_view(snap: Snapshot, currency: Currency) -> dict:
             "value": total,
             "holdings_value": holdings_value,
             "cash": cash_value,
-            "cost": cost,
+            "cost": cost if costed else None,
             "unrealized": costed_value - cost if costed else None,
             "unrealized_pct": _pct(costed_value - cost, cost),
             "realized": sum(getattr(p, f"realized_{c}") for p in positions),

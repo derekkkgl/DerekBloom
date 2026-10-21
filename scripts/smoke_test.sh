@@ -90,6 +90,9 @@ for path in /api/transactions /api/accounts /api/portfolio /api/yield /api/goal;
   check 200 "$path${sep}format=csv" csv-any
 done
 
+check 200 "/api/search?q=nvid"
+check 200 "/api/search?q=b&yahoo=false"
+
 # These must fail cleanly.
 check 400 "/api/quote/BAD%24"
 check 404 /api/quote/ZZZZNOTREAL
@@ -98,6 +101,7 @@ check 400 "/api/quotes?symbols="
 check 400 "/api/chart/NVDA?currency=EUR"
 check 404 /api/des/ZZZZNOTREAL
 check 400 "/api/portfolio?currency=EUR"
+check 400 "/api/search?q=%20"
 
 echo
 echo "$PASS passed, $FAIL failed"

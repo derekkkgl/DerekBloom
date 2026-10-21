@@ -22,6 +22,7 @@ TxType = Literal["BUY", "SELL", "DEPOSIT", "WITHDRAW", "DIVIDEND", "REWARD", "TR
 CashCurrency = Literal["USD", "USDT", "PHP"]
 
 ASSET_INFO_TTL = 6 * 3600
+NO_ACCOUNT_ID = 4  # "No account" (migration 002): used when a transaction doesn't name one
 MANILA = ZoneInfo("Asia/Manila")
 
 CLASSES = {"CRYPTOCURRENCY": "crypto", "EQUITY": "stock", "ETF": "etf", "MUTUALFUND": "fund"}
@@ -36,7 +37,7 @@ REGIONS = {
 class TransactionIn(BaseModel):
     model_config = ConfigDict(allow_inf_nan=False, str_strip_whitespace=True)
 
-    account_id: int
+    account_id: int | None = None  # optional: left out, it's "No account"
     trade_date: date
     type: TxType
     asset: str = Field(min_length=1, max_length=20)
@@ -93,12 +94,14 @@ def ensure_asset(conn: sqlite3.Connection, raw: str) -> str:
 
 def normalize(conn: sqlite3.Connection, body: TransactionIn, today: date) -> dict:
     """Check a transaction and return the row to save. Raises BadRequest with the reason."""
-    if not conn.execute("SELECT 1 FROM accounts WHERE id = ?", (body.account_id,)).fetchone():
-        raise BadRequest(f"Unknown account {body.account_id}.")
+    account_id = body.account_id if body.account_id is not None else NO_ACCOUNT_ID
+    if not conn.execute("SELECT 1 FROM accounts WHERE id = ?", (account_id,)).fetchone():
+        raise BadRequest(f"Unknown account {account_id}.")
     if body.trade_date > today:
         raise BadRequest(f"{body.trade_date} is in the future.")
 
     row = body.model_dump()
+    row["account_id"] = account_id
     row["trade_date"] = body.trade_date.isoformat()
     row["asset"] = body.asset.upper()
     row["note"] = body.note or None

@@ -170,3 +170,9 @@ def test_accounts_with_cash(client):
 def test_buy_without_a_price_is_saved(client):
     tx = post(client, account_id=2, asset="BTC", units=0.00235, price=None, price_currency="USDT").json()["data"]["transaction"]
     assert (tx["units"], tx["price"], tx["peso_amount"]) == (0.00235, None, None)
+
+
+def test_account_is_optional(client):
+    body = {"trade_date": "2026-10-01", "type": "BUY", "asset": "BTC", "units": 0.002}
+    tx = client.post("/api/transactions", json=body).json()["data"]["transaction"]
+    assert (tx["account_id"], tx["account"]) == (4, "No account")

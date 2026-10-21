@@ -16,17 +16,18 @@ TICKER_RE = re.compile(r"^[A-Z0-9.\-^=]{1,20}$")
 class Alias:
     symbol: str  # Yahoo symbol
     coingecko_id: str | None = None
+    label: str = ""  # shown in ticker search
 
 
 ALIASES: dict[str, Alias] = {
-    "BTC": Alias("BTC-USD", "bitcoin"),
-    "ETH": Alias("ETH-USD", "ethereum"),
-    "XRP": Alias("XRP-USD", "ripple"),
-    "SOL": Alias("SOL-USD", "solana"),
-    "BNB": Alias("BNB-USD", "binancecoin"),
-    "ADA": Alias("ADA-USD", "cardano"),
-    "DOGE": Alias("DOGE-USD", "dogecoin"),
-    "USDPHP": Alias("PHP=X"),
+    "BTC": Alias("BTC-USD", "bitcoin", "Bitcoin"),
+    "ETH": Alias("ETH-USD", "ethereum", "Ethereum"),
+    "XRP": Alias("XRP-USD", "ripple", "XRP"),
+    "SOL": Alias("SOL-USD", "solana", "Solana"),
+    "BNB": Alias("BNB-USD", "binancecoin", "BNB"),
+    "ADA": Alias("ADA-USD", "cardano", "Cardano"),
+    "DOGE": Alias("DOGE-USD", "dogecoin", "Dogecoin"),
+    "USDPHP": Alias("PHP=X", label="US dollar / Philippine peso"),
 }
 
 # Typing the Yahoo symbol directly (BTC-USD) should resolve the same way as the alias.

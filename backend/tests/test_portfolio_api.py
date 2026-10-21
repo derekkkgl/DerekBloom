@@ -104,7 +104,7 @@ def test_portfolio_in_pesos(client, book, fake_yahoo):
     assert data["allocation"]["class"][0]["label"] == "Crypto"  # largest first
     currencies = {a["label"]: a["value"] for a in data["allocation"]["currency"]}
     assert currencies == {"USD": pytest.approx(6_720), "PHP": 1_200}
-    assert [a["account"] for a in data["accounts"]] == ["Coins.ph", "Binance", "Gotrade", "Manual"]
+    assert [a["account"] for a in data["accounts"]] == ["Coins.ph", "Binance", "Gotrade", "No account"]
 
 
 def test_portfolio_in_dollars_uses_each_trade_days_rate(client, book):
@@ -131,6 +131,13 @@ def test_buy_without_a_price_shows_value_but_no_cost(client, book):
     assert totals["cost"] == pytest.approx(2_958 + 3_535)  # but not in cost or P&L
     assert totals["unrealized"] == pytest.approx(6_720 - 6_493)
     assert any("ETH has a buy with no price" in w for w in data["warnings"])
+
+
+def test_cost_is_unknown_when_no_holding_has_a_price(client):
+    add(client, account_id=2, asset="BTC", units=0.002, price=None, price_currency="USDT")
+    totals = client.get("/api/portfolio").json()["data"]["totals"]
+    assert totals["value"] > 0
+    assert (totals["cost"], totals["unrealized"], totals["unrealized_pct"]) == (None, None, None)
 
 
 def test_unknown_price_is_left_out_with_a_warning(client):
