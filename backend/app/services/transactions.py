@@ -116,9 +116,7 @@ def normalize(conn: sqlite3.Connection, body: TransactionIn, today: date) -> dic
     row["asset"] = ensure_asset(conn, body.asset)
     row["php_amount"] = None
     if kind in ("BUY", "SELL"):
-        _require_units(body)
-        if body.price is None:
-            raise BadRequest(f"Enter the price per unit the {kind.lower()} was made at.")
+        _require_units(body)  # the price is optional: without it, units and value still count
         row["fee_currency"] = _fee_currency(conn, body, row["asset"])
     elif kind == "REWARD":
         _require_units(body)

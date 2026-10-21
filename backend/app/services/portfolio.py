@@ -158,6 +158,8 @@ def holding_rows(snap: Snapshot) -> list[dict]:
         last, prev, last_day, prev_day = h.last_two(info.get("yahoo_symbol", ""))
         if last is None:
             snap.warn(f"No Yahoo price for {asset}, so it's left out of the totals.")
+        if not p.cost_known:
+            snap.warn(f"{asset} has a buy with no price, so its cost and P&L show — and stay out of the cost and P&L totals.")
         rate_last = h.usd_php(last_day) if last_day else rate_now
         rate_prev = h.usd_php(prev_day) if prev_day else None
         value_usd = p.units * last if last is not None else None
@@ -174,8 +176,8 @@ def holding_rows(snap: Snapshot) -> list[dict]:
                 "price_date": last_day,
                 "value_usd": value_usd,
                 "value_php": value_usd * rate_now if value_usd is not None else None,
-                "cost_usd": p.cost_usd,
-                "cost_php": p.cost_php,
+                "cost_usd": p.cost_usd if p.cost_known else None,
+                "cost_php": p.cost_php if p.cost_known else None,
                 # The day's move at each day's own rate, so the peso's move counts too.
                 "day_change_usd": p.units * (last - prev) if last is not None and prev is not None else None,
                 "day_change_php": p.units * (last * rate_last - prev * rate_prev) if last is not None and prev is not None and rate_prev else None,
@@ -214,7 +216,9 @@ def portfolio_view(snap: Snapshot, currency: Currency) -> dict:
     holdings_value = sum(r[f"value_{c}"] for r in priced)
     cash_value = sum(r[f"value_{c}"] for r in cash)
     total = holdings_value + cash_value
-    cost = sum(r[f"cost_{c}"] for r in priced)
+    costed = [r for r in priced if r[f"cost_{c}"] is not None]
+    cost = sum(r[f"cost_{c}"] for r in costed)
+    costed_value = sum(r[f"value_{c}"] for r in costed)
     day_rows = [r[f"day_change_{c}"] for r in priced if r[f"day_change_{c}"] is not None]
     day_change = sum(day_rows) if day_rows else None
     positions = snap.book.positions.values()
@@ -222,7 +226,7 @@ def portfolio_view(snap: Snapshot, currency: Currency) -> dict:
     rows = []
     for r in holdings:
         value, row_cost = r[f"value_{c}"], r[f"cost_{c}"]
-        pnl = value - row_cost if value is not None else None
+        pnl = value - row_cost if value is not None and row_cost is not None else None
         rows.append(
             {
                 "asset": r["asset"],
@@ -230,7 +234,7 @@ def portfolio_view(snap: Snapshot, currency: Currency) -> dict:
                 "class": r["class"],
                 "region": r["region"],
                 "units": r["units"],
-                "avg_cost": row_cost / r["units"],
+                "avg_cost": row_cost / r["units"] if row_cost is not None else None,
                 "price": r[f"price_{c}"],
                 "price_date": r["price_date"],
                 "value": value,
@@ -259,8 +263,8 @@ def portfolio_view(snap: Snapshot, currency: Currency) -> dict:
             "holdings_value": holdings_value,
             "cash": cash_value,
             "cost": cost,
-            "unrealized": holdings_value - cost if priced else None,
-            "unrealized_pct": _pct(holdings_value - cost, cost),
+            "unrealized": costed_value - cost if costed else None,
+            "unrealized_pct": _pct(costed_value - cost, cost),
             "realized": sum(getattr(p, f"realized_{c}") for p in positions),
             "dividends": sum(getattr(p, f"dividends_{c}") for p in positions),
             "day_change": day_change,

@@ -120,6 +120,19 @@ def test_sell_shows_up_as_realized(client, book):
     assert totals["realized"] == pytest.approx(0.05 * 520 - 51 / 2)
 
 
+def test_buy_without_a_price_shows_value_but_no_cost(client, book):
+    add(client, account_id=2, asset="ETH", units=0.1, price=None, price_currency="USDT", trade_date="2026-09-01")
+    data = client.get("/api/portfolio?currency=PHP").json()["data"]
+    eth = next(h for h in data["holdings"] if h["asset"] == "ETH")
+    assert eth["value"] == pytest.approx(0.1 * 3_000 * 60)
+    assert (eth["cost"], eth["avg_cost"], eth["pnl"], eth["pnl_pct"]) == (None, None, None, None)
+    totals = data["totals"]
+    assert totals["value"] == pytest.approx(3_060 + 3_660 + 18_000 + 1_200)  # still counted in value
+    assert totals["cost"] == pytest.approx(2_958 + 3_535)  # but not in cost or P&L
+    assert totals["unrealized"] == pytest.approx(6_720 - 6_493)
+    assert any("ETH has a buy with no price" in w for w in data["warnings"])
+
+
 def test_unknown_price_is_left_out_with_a_warning(client):
     add(client, asset="DELISTED", price=1, units=10, account_id=4)
     data = client.get("/api/portfolio").json()["data"]

@@ -140,3 +140,24 @@ def test_deposits_and_withdrawals_do_not_create_holdings():
     book = replay([tx("DEPOSIT", "USD", 100, "2026-01-05", php=5_800), tx("WITHDRAW", "USD", 50, "2026-02-05")],
                   FakePrices())
     assert book.positions == {}
+
+
+def test_buy_without_a_price_keeps_units_but_has_no_cost():
+    book = replay([tx("BUY", "BTC", 0.002, "2026-01-10", price=60_000), tx("BUY", "BTC", 0.001, "2026-02-10")], FakePrices())
+    btc = book.positions["BTC"]
+    assert btc.units == pytest.approx(0.003) and btc.cost_known is False
+
+
+def test_sells_book_no_pnl_without_a_price_or_a_known_cost():
+    book = replay([tx("BUY", "ETH", 1, "2026-01-10", price=3_000), tx("SELL", "ETH", 0.5, "2026-02-10"),
+                   tx("BUY", "XRP", 10, "2026-01-10"), tx("SELL", "XRP", 5, "2026-02-10", price=2)], FakePrices())
+    eth, xrp = book.positions["ETH"], book.positions["XRP"]
+    assert eth.units == pytest.approx(0.5) and eth.cost_usd == pytest.approx(1_500) and eth.realized_usd == 0
+    assert xrp.units == pytest.approx(5) and xrp.realized_usd == 0 and xrp.cost_known is False
+
+
+def test_selling_everything_starts_a_fresh_known_cost():
+    book = replay([tx("BUY", "ETH", 1, "2026-01-10"), tx("SELL", "ETH", 1, "2026-02-10"),
+                   tx("BUY", "ETH", 1, "2026-03-10", price=3_000)], FakePrices())
+    eth = book.positions["ETH"]
+    assert eth.cost_known is True and eth.cost_usd == pytest.approx(3_000)

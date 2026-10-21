@@ -42,12 +42,12 @@ A ticker alone (`NVDA`) opens its description. Up arrow in an empty Look up box 
 
 The Portfolio page holds `PORT` and `TXN`; the Goal page holds `GOAL` and `YLD`. Everything is stored in a local SQLite file, `backend/data/tape.db` (git-ignored, never leaves your Mac).
 
-**Entering transactions (TXN).** What matters is what you bought, how much, and at what price, plus any fee. Type in the entry row above the table and press Enter. Pick the account first: the price currency follows it (Coins.ph: PHP, Binance: USDT, Gotrade: USD).
+**Entering transactions (TXN).** What matters is what you bought, how much, and when. The price you paid is optional: with it, PORT also shows cost and P&L for that holding; without it, they show —. Type in the entry row above the table and press Enter. Pick the account first: the price currency follows it (Coins.ph: PHP, Binance: USDT, Gotrade: USD).
 
 | Type | Units / amount | Also enter |
 | --- | --- | --- |
 | `DEPOSIT` | dollars or USDT received (asset `USD`, `USDT`, or `PHP`) | the pesos you sent, optional (a record only) |
-| `BUY`, `SELL` | units of the asset (`BTC`, `VOO`) | price per unit, fee, and the fee's currency if different (`BNB`, or the coin itself) |
+| `BUY`, `SELL` | units of the asset (`BTC`, `VOO`) | price per unit (optional), fee, and the fee's currency if different (`BNB`, or the coin itself) |
 | `REWARD` | units received (staking, interest paid in coins) | price on the day, optional |
 | `DIVIDEND` | cash received, after tax | its currency |
 | `TRANSFER` | units moved between accounts | the network fee, in the coin |
@@ -57,6 +57,7 @@ Tab to a row, then ↑ ↓ to move, E to edit in place, Delete to remove (it ask
 
 **How cost works.** Average cost: units × price plus the trading fee.
 
+- A holding with any buy that has no price shows its units and value, but its cost and P&L show — and stay out of the cost and P&L totals. A sell without a price books no P&L.
 - Dollar buys (Gotrade, Binance) convert to pesos at Yahoo's USD/PHP close on the trade date. Exchange spreads and FX fees aren't tracked.
 - Coins.ph buys are priced in pesos, so the pesos you paid are the cost.
 - A sell takes units out at average cost; the difference is realized P&L. A reward adds units at zero cost. A transfer's network fee removes units but keeps the cost. A fee paid in another coin (BNB) adds its value to the cost and comes out of your BNB.

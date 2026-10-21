@@ -10,6 +10,9 @@ How each type moves a holding:
   DIVIDEND  cash received, counted as income; units don't change
   DEPOSIT, WITHDRAW  a record of money in and out; no effect on holdings
 
+The buy price is optional. A holding with any buy that has no price has no known cost, so
+it shows units and value but no average cost or P&L; a sell without a price books none.
+
 Trading fees count in the cost. Peso amounts:
   priced in PHP (Coins.ph)    the pesos paid
   priced in USD or USDT       dollars x Yahoo's USD/PHP close on the trade date
@@ -78,23 +81,31 @@ class Position:
     realized_usd: float = 0.0
     dividends_php: float = 0.0
     dividends_usd: float = 0.0
+    cost_known: bool = True  # False once a buy without a price is part of this holding
 
     def add(self, units: float, php: float, usd: float) -> None:
         self.units += units
         self.cost_php += php
         self.cost_usd += usd
 
-    def remove(self, units: float, proceeds_php: float, proceeds_usd: float) -> None:
-        """Take units out at average cost and book the difference as realized P&L."""
+    def remove(self, units: float, proceeds_php: float | None, proceeds_usd: float | None) -> None:
+        """Take units out at average cost and book the difference as realized P&L.
+        Without proceeds (a sell with no price) or a known cost, no P&L is booked."""
         share = min(units / self.units, 1.0) if self.units > EPSILON else 1.0
         removed_php, removed_usd = self.cost_php * share, self.cost_usd * share
-        self.realized_php += proceeds_php - removed_php
-        self.realized_usd += proceeds_usd - removed_usd
+        if self.cost_known and proceeds_php is not None and proceeds_usd is not None:
+            self.realized_php += proceeds_php - removed_php
+            self.realized_usd += proceeds_usd - removed_usd
         self.units -= units
         self.cost_php -= removed_php
         self.cost_usd -= removed_usd
         if self.units < EPSILON:
-            self.units = self.cost_php = self.cost_usd = 0.0
+            self.clear()
+
+    def clear(self) -> None:
+        """Everything sold or moved out: the next buy starts a fresh cost."""
+        self.units = self.cost_php = self.cost_usd = 0.0
+        self.cost_known = True
 
 
 @dataclass
@@ -144,7 +155,7 @@ def _drop_units(p: Position, units: float) -> None:
     """Units leave but the cost stays (a transfer's network fee)."""
     p.units -= units
     if p.units < EPSILON:
-        p.units = p.cost_php = p.cost_usd = 0.0
+        p.clear()
 
 
 def _trade(book: Book, p: Position, tx: Tx, prices: Prices) -> None:
@@ -155,6 +166,10 @@ def _trade(book: Book, p: Position, tx: Tx, prices: Prices) -> None:
     if tx.type == "BUY":
         php, usd = to_both(gross + fee_native, currency, day, prices)
         p.add(tx.units - fee_units, php, usd)
+        if tx.price is None:
+            p.cost_known = False
+    elif tx.price is None:
+        p.remove(tx.units + fee_units, None, None)
     else:
         php, usd = to_both(gross - fee_native, currency, day, prices)
         p.remove(tx.units + fee_units, php, usd)

@@ -68,7 +68,6 @@ def test_php_deposit_defaults_its_peso_amount(client):
     [
         ({"type": "DEPOSIT", "asset": "BTC", "units": 1}, "currency itself"),
         ({"asset": "USD"}, "is cash"),
-        ({"price": None}, "price per unit"),
         ({"units": 0}, "more than zero"),
         ({"trade_date": "2099-01-01"}, "future"),
         ({"account_id": 99}, "Unknown account"),
@@ -166,3 +165,8 @@ def test_accounts_with_cash(client):
     assert client.put("/api/accounts/1/cash", json={"currency": "EUR", "amount": 1}).status_code == 400
     csv = client.get("/api/accounts?format=csv").text.splitlines()
     assert "cash_php" in csv[0] and len(csv) == 5
+
+
+def test_buy_without_a_price_is_saved(client):
+    tx = post(client, account_id=2, asset="BTC", units=0.00235, price=None, price_currency="USDT").json()["data"]["transaction"]
+    assert (tx["units"], tx["price"], tx["peso_amount"]) == (0.00235, None, None)

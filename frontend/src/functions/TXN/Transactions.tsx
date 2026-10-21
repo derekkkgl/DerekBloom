@@ -88,8 +88,9 @@ export function Transactions({ mnemonic, title }: FunctionScreenProps) {
   return (
     <Panel title={title} mnemonic={mnemonic} meta={combineMeta(list.meta, accounts.meta)} actions={<CsvLink path="/api/transactions?format=csv" />}>
       <p className="mb-2 max-w-prose text-[13px] text-muted">
-        Every trade, reward, and deposit, newest first. What matters is what you bought, how much, and at what price (plus any
-        fee). Dollar trades get their peso cost from Yahoo&apos;s USD/PHP on the trade date; Coins.ph buys are priced in pesos.
+        Every trade, reward, and deposit, newest first. What matters is what you bought, how much, and when. The price you paid
+        is optional: with it, PORT also shows your cost and P&amp;L; without it, those show —. Dollar prices convert to pesos at
+        Yahoo&apos;s USD/PHP on the trade date.
       </p>
       <UpdateFailed error={list.data ? list.error : null} />
       {!list.data || !accounts.data ? (
@@ -343,7 +344,7 @@ function EntryRow(props: {
         <td className="px-1.5 pb-1">
           {fields.price ? (
             <div className="flex gap-1">
-              <TextInput {...common} inputMode="decimal" aria-label="Price per unit" placeholder={form.type === "REWARD" ? "optional" : "per unit"} value={form.price} onChange={(e) => set({ price: e.target.value })} className="text-right" />
+              <TextInput {...common} inputMode="decimal" aria-label="Price per unit" placeholder="optional" value={form.price} onChange={(e) => set({ price: e.target.value })} className="text-right" />
               <CurrencySelect {...common} value={form.price_currency} onChange={(v) => set({ price_currency: v })} />
             </div>
           ) : form.type === "DIVIDEND" ? (

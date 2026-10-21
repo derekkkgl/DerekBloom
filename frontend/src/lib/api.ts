@@ -310,11 +310,11 @@ export type Holding = {
   class: "crypto" | "stock" | "etf" | "fund" | null;
   region: string | null;
   units: number;
-  avg_cost: number;
+  avg_cost: number | null; // null when a buy has no price
   price: number | null;
   price_date: string | null;
   value: number | null;
-  cost: number;
+  cost: number | null; // null when a buy has no price
   pnl: number | null;
   pnl_pct: number | null;
   day_change: number | null;
