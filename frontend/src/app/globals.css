@@ -9,6 +9,14 @@
   --color-up: #166b30;
   --color-down: #b42318;
 
+  /* Heat map tints: up and down mixed into the paper at 14%, 28%, 45%. Ink text on each is 7.4:1 or more. */
+  --color-up-1: #d4dcca;
+  --color-up-2: #b5c9b1;
+  --color-up-3: #90b392;
+  --color-down-1: #ead2c7;
+  --color-down-2: #e1b5aa;
+  --color-down-3: #d79388;
+
   /* No rounded corners and no shadows anywhere: remove those scales entirely. */
   --radius-*: initial;
   --shadow-*: initial;
