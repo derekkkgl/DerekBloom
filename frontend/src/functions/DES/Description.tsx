@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { Pending, UpdateFailed } from "@/components/LoadState";
 import { Num } from "@/components/Num";
@@ -7,6 +8,7 @@ import { Panel } from "@/components/Panel";
 import { RangeRule } from "@/components/RangeRule";
 import { Stat, StatList } from "@/components/StatList";
 import { combineMeta, type ApiError, type Des, type DesCoin, type DesSecurity, type Meta, type Quote } from "@/lib/api";
+import { commandHref } from "@/lib/command";
 import { useDisplayCurrency } from "@/lib/currency";
 import { formatDate, priceDecimals } from "@/lib/format";
 import type { FunctionScreenProps } from "@/lib/registry";
@@ -17,7 +19,13 @@ const QUOTE_POLL_MS = 60_000;
 
 export function Description({ ticker = "", mnemonic, title }: FunctionScreenProps) {
   const des = useApi<Des>(`/api/des/${encodeURIComponent(ticker)}`, DES_POLL_MS);
-  const header = { mnemonic, title, ticker };
+  // The chart is its own screen (GP), so every description links straight to it.
+  const chart = (
+    <Link href={commandHref({ mnemonic: "GP", ticker })} className="text-ink underline decoration-hairline underline-offset-2 hover:decoration-ink">
+      Chart (GP)
+    </Link>
+  );
+  const header = { mnemonic, title, ticker, actions: chart };
 
   if (!des.data) {
     return (
@@ -33,7 +41,7 @@ export function Description({ ticker = "", mnemonic, title }: FunctionScreenProp
   );
 }
 
-type Header = { mnemonic: string; title: string; ticker: string };
+type Header = { mnemonic: string; title: string; ticker: string; actions: ReactNode };
 type Props<T> = { header: Header; des: T; meta: Meta | null; error: ApiError | null };
 
 // --- Stocks and ETFs ---------------------------------------------------------
